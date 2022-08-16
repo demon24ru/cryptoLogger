@@ -289,6 +289,6 @@
     },
     "log": {
         "level": "error",
-        "file_path": "./cryptogalaxy.log"
+        "file_path": "/var/log/cryptogalaxy/cryptogalaxy"
     }
 }
