@@ -1,0 +1,18 @@
+project_name: cryptogalaxy
+builds:
+  - env: [CGO_ENABLED=0]
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+nfpms:
+- maintainer: Pavan Shetty <milkywaybrain@gmail.com>
+  homepage: https://github.com/milkywaybrain/cryptogalaxy
+  license: MIT
+  formats:
+  - deb
+  - rpm
+  - apk

@@ -1,0 +1,294 @@
+{
+    "exchanges": [
+        {
+            "name": "kucoin",
+            "markets": [
+                {
+                    "id": "ETH-USDT",
+                    "info": [
+                        {
+                            "channel": "ticker",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "trade",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "level2",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "ordersbook",
+                            "connector": "rest",
+                            "rest_ping_interval_sec": 60,
+                            "storages": [
+                                "terminal"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "BTC-USDT",
+                    "info": [
+                        {
+                            "channel": "ticker",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "trade",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "level2",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "ordersbook",
+                            "connector": "rest",
+                            "rest_ping_interval_sec": 60,
+                            "storages": [
+                                "terminal"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "KCS-USDT",
+                    "info": [
+                        {
+                            "channel": "ticker",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "trade",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "level2",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "ordersbook",
+                            "connector": "rest",
+                            "rest_ping_interval_sec": 60,
+                            "storages": [
+                                "terminal"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "ETH3L-USDT",
+                    "info": [
+                        {
+                            "channel": "ticker",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "trade",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "level2",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "ordersbook",
+                            "connector": "rest",
+                            "rest_ping_interval_sec": 60,
+                            "storages": [
+                                "terminal"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "ETH3S-USDT",
+                    "info": [
+                        {
+                            "channel": "ticker",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "trade",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "level2",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "ordersbook",
+                            "connector": "rest",
+                            "rest_ping_interval_sec": 60,
+                            "storages": [
+                                "terminal"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "BTC3L-USDT",
+                    "info": [
+                        {
+                            "channel": "ticker",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "trade",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "level2",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "ordersbook",
+                            "connector": "rest",
+                            "rest_ping_interval_sec": 60,
+                            "storages": [
+                                "terminal"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "BTC3S-USDT",
+                    "info": [
+                        {
+                            "channel": "ticker",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "trade",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "level2",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "ordersbook",
+                            "connector": "rest",
+                            "rest_ping_interval_sec": 60,
+                            "storages": [
+                                "terminal"
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "retry": {
+                "number": 10,
+                "gap_sec": 60,
+                "reset_sec": 600
+            }
+        }
+    ],
+    "connection": {
+        "websocket": {
+            "conn_timeout_sec": 10,
+            "read_timeout_sec": 0
+        },
+        "rest": {
+            "request_timeout_sec": 10,
+            "max_idle_conns": 100,
+            "max_idle_conns_per_host": 10
+        },
+        "terminal": {
+            "ticker_commit_buffer": 1,
+            "trade_commit_buffer": 1,
+            "level2_commit_buffer": 1,
+            "orders_book_commit_buffer": 1
+        }
+    },
+    "log": {
+        "level": "error",
+        "file_path": "./cryptogalaxy.log"
+    }
+}
