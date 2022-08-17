@@ -663,13 +663,5 @@ Couple of things to note before code contribution :
 ## License 
  
 Cryptogalaxy is licensed under the [MIT License](./LICENSE).
- 
-## Donate
- 
-This is not a big app. But still, if you find this is useful and want to donate, please do. (Donation is sent directly to me, Pavan Shetty, original author of the app)
- 
-**Bitcoin** : 1LkR7QwpKqFEd6Gdueeebfun3djLocjtuu  
-
-**Buy Me a Coffee** : [buymeacoffee.com/milkywaybrain](https://www.buymeacoffee.com/milkywaybrain)
   
 **Thank you all!** 
