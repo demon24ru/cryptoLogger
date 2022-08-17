@@ -2,7 +2,7 @@ FROM golang:alpine3.15
 WORKDIR /build
 COPY . ./
 RUN apk update && apk add --no-cache --virtual --update git gcc linux-pam-dev libc-dev
-RUN go build -ldflags "-w -s" -buildvcs=false -o /build/cryptogalaxy
+RUN go build ./... -ldflags "-w -s" -buildvcs=false -o /build/cryptogalaxy
 
 FROM alpine:3.15
 WORKDIR /cryptogalaxy
