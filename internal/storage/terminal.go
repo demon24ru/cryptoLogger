@@ -62,7 +62,7 @@ func (t *Terminal) CommitLevel2(_ context.Context, data []Level2) error {
 func (t *Terminal) CommitOrdersBook(_ context.Context, data []OrdersBook) error {
 	for i := range data {
 		ordersBook := data[i]
-		fmt.Fprintf(t.out, "%-15s%-15s%-15s%-15s%20s\n\n", "OrdersBook", ordersBook.MktCommitName, ordersBook.Bids, ordersBook.Asks, ordersBook.Timestamp.Local().Format(TerminalTimestamp))
+		fmt.Fprintf(t.out, "%-15s%-15s%-15s%-15s%-15s%20s\n\n", "OrdersBook", ordersBook.MktCommitName, ordersBook.Sequence, ordersBook.Bids, ordersBook.Asks, ordersBook.Timestamp.Local().Format(TerminalTimestamp))
 	}
 	return nil
 }
