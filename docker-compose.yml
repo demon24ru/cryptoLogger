@@ -13,6 +13,7 @@ services:
   db:
     image: yandex/clickhouse-server
     restart: always
+    container_name: db
     ulimits:
       nofile:
         soft: 262144
