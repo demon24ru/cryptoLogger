@@ -1,6 +1,6 @@
 ## Cryptogalaxy
  
-Cryptogalaxy is an app which will get any cryptocurrencies ticker and trade data in real time from multiple exchanges and then saves it in multiple storage systems.
+Forked from [Cryptogalaxy](https://github.com/milkywaybrain/cryptogalaxy) is an app which will get any cryptocurrencies ticker and trade data in real time from multiple exchanges and then saves it in multiple storage systems.
 
 <p>Currently supported exchanges :<br></p>
 
