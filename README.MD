@@ -4,46 +4,12 @@ Cryptogalaxy is an app which will get any cryptocurrencies ticker and trade data
 
 <p>Currently supported exchanges :<br></p>
 
-<div>1. <img src="./docs/exchange/ftx.png" title="FTX" height="24" width="24"/> FTX</div>
-<div>2. <img src="./docs/exchange/coinbase-pro.png" title="Coinbase Pro" height="24" width="24"/> Coinbase Pro</div>
-<div>3. <img src="./docs/exchange/binance.png" title="Binance" height="24" width="24"/> Binance</div>
-<div>4. <img src="./docs/exchange/bitfinex.png" title="Bitfinex" height="24" width="24"/> Bitfinex</div>
-<div>5. <img src="./docs/exchange/huobi.png" title="Huobi" height="24" width="24"/> Huobi</div>
-<div>6. <img src="./docs/exchange/gateio.png" title="Gateio" height="24" width="24"/> Gateio</div>
 <div>7. <img src="./docs/exchange/kucoin.png" title="Kucoin" height="24" width="24"/> Kucoin</div>
-<div>8. <img src="./docs/exchange/bitstamp.png" title="Bitstamp" height="24" width="24"/> Bitstamp</div>
-<div>9. <img src="./docs/exchange/bybit.png" title="Bybit" height="24" width="24"/> Bybit</div>
-<div>10. <img src="./docs/exchange/probit.png" title="Probit" height="24" width="24"/> Probit</div>
-<div>11. <img src="./docs/exchange/gemini.png" title="Gemini" height="24" width="24"/> Gemini</div>
-<div>12. <img src="./docs/exchange/bitmart.png" title="Bitmart" height="24" width="24"/> Bitmart</div>
-<div>13. <img src="./docs/exchange/digifinex.png" title="Digifinex" height="24" width="24"/> Digifinex</div>
-<div>14. <img src="./docs/exchange/ascendex.png" title="AscendEX" height="24" width="24"/> AscendEX</div>
-<div>15. <img src="./docs/exchange/kraken.png" title="Kraken" height="24" width="24"/> Kraken</div>
-<div>16. <img src="./docs/exchange/binance-us.png" title="Binance US" height="24" width="24"/> Binance US</div>
-<div>17. <img src="./docs/exchange/okex.png" title="OKEx" height="24" width="24"/> OKEx</div>
-<div>18. <img src="./docs/exchange/ftx-us.png" title="FTX US" height="24" width="24"/> FTX US</div>
-<div>19. <img src="./docs/exchange/hitbtc.png" title="HitBTC" height="24" width="24"/> HitBTC</div>
-<div>20. <img src="./docs/exchange/aax.png" title="AAX" height="24" width="24"/> AAX</div>
-<div>21. <img src="./docs/exchange/bitrue.png" title="Bitrue" height="24" width="24"/> Bitrue</div>
-<div>22. <img src="./docs/exchange/btse.png" title="BTSE" height="24" width="24"/> BTSE</div>
-<div>23. <img src="./docs/exchange/mexo.png" title="Mexo" height="24" width="24"/> Mexo</div>
-<div>24. <img src="./docs/exchange/bequant.png" title="BEQUANT" height="24" width="24"/> BEQUANT</div>
-<div>25. <img src="./docs/exchange/lbank.png" title="LBank" height="24" width="24"/> LBank</div>
-<div>26. <img src="./docs/exchange/coinflex.png" title="CoinFLEX" height="24" width="24"/> CoinFLEX</div>
-<div>27. <img src="./docs/exchange/binance.png" title="Binance TR" height="24" width="24"/> Binance TR</div>
-<div>28. <img src="./docs/exchange/cryptodot-com.png" title="Crypto.com Exchange" height="24" width="24"/> Crypto.com Exchange</div>
-<div>29. <img src="./docs/exchange/fmfwio.png" title="FMFW.io" height="24" width="24"/> FMFW.io</div>
-<div>30. <img src="./docs/exchange/changelly-pro.png" title="Changelly PRO" height="24" width="24"/> Changelly PRO</div>
  
 <p><br>Currently supported storages :<br></p>
 
 <div>1. <img src="./docs/storage/terminal.png" title="Terminal Output" height="24" width="24"/> Terminal Output</div>
-<div>2. <img src="./docs/storage/mysql.png" title="MySQL" height="24" width="24"/> MySQL</div>
-<div>3. <img src="./docs/storage/elasticsearch.png" title="Elasticsearch" height="24" width="24"/> Elasticsearch</div>
-<div>4. <img src="./docs/storage/influxdb.svg" title="InfluxDB" height="24" width="24"/> InfluxDB</div>
-<div>5. <img src="./docs/storage/nats.png" title="NATS" height="24" width="24"/> NATS</div>
 <div>6. <img src="./docs/storage/clickhouse.jpeg" title="ClickHouse" height="24" width="24"/> ClickHouse</div>
-<div>7. <img src="./docs/storage/s3.png" title="S3" height="24" width="24"/> S3</div>
  
 ---------------------------------------  
  * [Features](#features)
@@ -199,16 +165,11 @@ Example configuration file can be found at [./examples/config.json](./examples/c
                     "info": [
                         {
                             "channel": "ticker",
-                            "connector": "rest",
-                            "rest_ping_interval_sec": 10,
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
                             "storages": [
                                 "terminal",
-                                "mysql",
-                                "elastic_search",
-                                "influxdb",
-                                "nats",
-                                "clickhouse",
-                                "s3"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -216,12 +177,26 @@ Example configuration file can be found at [./examples/config.json](./examples/c
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "mysql",
-                                "elastic_search",
-                                "influxdb",
-                                "nats",
-                                "clickhouse",
-                                "s3"
+                                "terminal",
+                                "clickhouse"
+                            ]
+                        },
+                        {
+                            "channel": "level2",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                              "terminal",
+                              "clickhouse"
+                            ]
+                        },
+                        {
+                            "channel": "ordersbook",
+                            "connector": "rest",
+                            "rest_ping_interval_sec": 60,
+                            "storages": [
+                              "terminal",
+                              "clickhouse"
                             ]
                         }
                     ],
@@ -241,60 +216,17 @@ Example configuration file can be found at [./examples/config.json](./examples/c
             "read_timeout_sec": 0
         },
         "rest": {
-            "request_timeout_sec": 10,
-            "max_idle_conns": 100,
-            "max_idle_conns_per_host": 10
+          "kucoin_key": "",
+          "kucoin_secret": "",
+          "kucoin_passphrase": ""
         },
         "terminal": {
             "ticker_commit_buffer": 1,
-            "trade_commit_buffer": 1
+            "trade_commit_buffer": 1,
+            "level2_commit_buffer": 1,
+            "orders_book_commit_buffer": 1
         },
-        "mysql": {
-            "user": "root",
-            "password": "admin",
-            "URL": "@tcp(127.0.0.1:3306)",
-            "schema": "cryptogalaxy",
-            "request_timeout_sec": 10,
-            "conn_max_lifetime_sec": 180,
-            "max_open_conns": 10,
-            "max_idle_conns": 10,
-            "ticker_commit_buffer": 100,
-            "trade_commit_buffer": 100
-        },
-        "elastic_search": {
-            "addresses": [
-                "http://localhost:9200/"
-            ],
-            "username": "",
-            "password": "",
-            "index_name": "cryptogalaxy",
-            "request_timeout_sec": 10,
-            "max_idle_conns": 10,
-            "max_idle_conns_per_host": 10,
-            "ticker_commit_buffer": 100,
-            "trade_commit_buffer": 100
-        },
-        "influxdb": {
-            "organization": "crypto",
-            "bucket": "cryptogalaxy",
-            "token": "t3Z1bFhjcUo_p9j_6_vuqga7_NQp9UZPdA6YZNNpzY3NUZM4GmRkN80fjHJDMIYA9kfA4GRUoOtty7bpdFoXfQ==",
-            "URL": "http://localhost:8086/",
-            "request_timeout_sec": 10,
-            "max_idle_conns": 10,
-            "ticker_commit_buffer": 100,
-            "trade_commit_buffer": 100
-        },
-        "nats": {
-            "addresses": [
-                "http://localhost:4222/"
-            ],
-            "username": "",
-            "password": "",
-            "subject_base_name": "cryptogalaxy",
-            "request_timeout_sec": 10,
-            "ticker_commit_buffer": 100,
-            "trade_commit_buffer": 100
-        },
+       
         "clickhouse": {
             "user": "",
             "password": "",
@@ -307,19 +239,9 @@ Example configuration file can be found at [./examples/config.json](./examples/c
             ],
             "compression": false,
             "ticker_commit_buffer": 100,
-            "trade_commit_buffer": 100
-        },
-        "s3": {
-            "aws_region": "us-west-2",
-            "access_key_id": "AKIAIOSFODNN7EXAMPLE",
-            "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-            "bucket": "cryptogalaxy",
-            "use_prefix_for_object_name": false,
-            "request_timeout_sec": 10,
-            "max_idle_conns": 10,
-            "max_idle_conns_per_host": 10,
-            "ticker_commit_buffer": 100,
-            "trade_commit_buffer": 100
+            "trade_commit_buffer": 100,
+            "level2_commit_buffer": 100,
+            "orders_book_commit_buffer": 100
         }
     },
     "log": {
@@ -443,167 +365,6 @@ Possible values : > 0
 *Note :* All REST API and websocket methods buffers data locally and then commits.
 So for example, if the specified number is 10 and has multiple market data points then each corresponding method commits data once it reaches the buffer size limit 10 and not the time all methods combined buffer reaches cumulative size of 10. 
  
-***MySQL settings*** : 
- 
-These options are needed only if you want to store data in mysql.
- 
-* **connection : mysql : user** : Username for database.
- 
-* **connection : mysql : password** : Password for database.
- 
-* **connection : mysql : URL** : URL of the database.
- 
-* **connection : mysql : schema** : Schema name of the database.
- 
-* **connection : mysql : request_timeout_sec** : Timeout for MySQL connection and insert data.
- 
-Possible values : 0 for no timeout, greater than 0 for any other time.
- 
-* **connection : mysql : conn_max_lifetime_sec** : It is required to ensure connections are closed by the MySQL driver safely before connection is closed by MySQL server, OS, or other middlewares. Since some middlewares close idle connections by 5 minutes, MySQL driver for Go, which is used by the app, recommends a timeout shorter than 5 minutes. This setting helps load balancing and changing system variables too.
- 
-Possible values : 0, connections are not closed due to a connection's age. Greater than 0 sec for any other time.
- 
-* **connection : mysql : max_open_conns** : It is highly recommended to limit the number of connections used by the application. This depends on the application and MySQL server.
- 
-Possible values : 0, no limit on the number of open connections. Greater than 0 for any other number.
- 
-* **connection : mysql : max_idle_conns** : It is recommended to be set the same to (or greater than) mysql : max_open_conns. When it is smaller than mysql : max_open_conns, connections can be opened and closed very frequently than you expect. Idle connections can be closed by the mysql : conn_max_lifetime_sec.
- 
-Possible values : 0 for 2 (this may change in future), greater than 0 for any other number.
- 
-* **connection : mysql : ticker_commit_buffer** : Size of market tickers to be buffered in memory before inserting data to MySQL.
- 
-Possible values : > 0
- 
-*Note :* All REST API and websocket methods buffers data locally and then commits.
-So for example, if the specified number is 10 and has multiple market data points then each corresponding method commits data once it reaches the buffer size limit 10 and not the time all methods combined buffer reaches cumulative size of 10. 
- 
-* **connection : mysql : trade_commit_buffer** : Size of market trades to be buffered in memory before inserting data to MySQL.
- 
-Possible values : > 0
- 
-*Note :* All REST API and websocket methods buffers data locally and then commits.
-So for example, if the specified number is 10 and has multiple market data points then each corresponding method commits data once it reaches the buffer size limit 10 and not the time all methods combined buffer reaches cumulative size of 10. 
- 
-***Elasticsearch settings*** : 
- 
-These options are needed only if you want to store data in Elasticsearch.
- 
-* **connection : elastic_search : addresses** : A list of Elasticsearch nodes to use.
- 
-* **connection : elastic_search : username** : Username for Elasticsearch HTTP basic authentication.
- 
-Possible values : value or empty string if there is no authentication.
- 
-* **connection : elastic_search : password** : Password for Elasticsearch HTTP basic authentication.
- 
-Possible values : value or empty string if there is no authentication.
- 
-* **connection : elastic_search : index_name** : Index name of the Elasticsearch.
- 
-* **connection : elastic_search : request_timeout_sec** : Timeout for Elasticsearch connection and index data.
- 
-Possible values : 0 for no timeout, greater than 0 sec for any other time.
- 
-* **connection : elastic_search : max_idle_conns** : Maximum number of idle (keep-alive) connections across all hosts for Elasticsearch.
- 
-Possible values : 0 for no limit, greater than 0 for any other number.
- 
-* **connection : elastic_search : max_idle_conns_per_host** : Maximum idle (keep-alive) connections to keep per-host for Elasticsearch.
- 
-Possible values : 0 for 2 (this may change in future), greater than 0 for any other number.
- 
-* **connection : elastic_search : ticker_commit_buffer** : Size of market tickers to be buffered in memory before indexing data to Elasticsearch.
- 
-Possible values : > 0
- 
-*Note :* All REST API and websocket methods buffers data locally and then commits.
-So for example, if the specified number is 10 and has multiple market data points then each corresponding method commits data once it reaches the buffer size limit 10 and not the time all methods combined buffer reaches cumulative size of 10. 
- 
-Also, this has nothing to do with indexing buffer settings available in Elasticsearch, that is different.
- 
-* **connection : elastic_search : trade_commit_buffer** : Size of market trades to be buffered in memory before indexing data to Elasticsearch.
- 
-Possible values : > 0
- 
-*Note :* All REST API and websocket methods buffers data locally and then commits.
-So for example, if the specified number is 10 and has multiple market data points then each corresponding method commits data once it reaches the buffer size limit 10 and not the time all methods combined buffer reaches cumulative size of 10. 
- 
-Also, this has nothing to do with indexing buffer settings available in Elasticsearch, that is different.
-
-***InfluxDB settings*** : 
- 
-These options are needed only if you want to store data in influxdb.
- 
-* **connection : influxdb : organization** : Name for InfluxDB organization.
- 
-* **connection : influxdb : bucket** : Name for InfluxDB bucket.
-
-* **connection : influxdb : token** : Server authentication token.
- 
-* **connection : influxdb : URL** : InfluxDB server base URL.
-
-* **connection : influxdb : request_timeout_sec** : InfluxDB API request timeout.
- 
-Possible values : 0 for no timeout, greater than 0 for any other time.
- 
-* **connection : influxdb : max_idle_conns** : Maximum number of idle (keep-alive) connections across all hosts for InfluxDB API.
- 
-Possible values : 0 for no limit, greater than 0 for any other number.
- 
-* **connection : influxdb : ticker_commit_buffer** : Size of market tickers to be buffered in memory before inserting data to InfluxDB.
- 
-Possible values : > 0
- 
-*Note :* All REST API and websocket methods buffers data locally and then commits.
-So for example, if the specified number is 10 and has multiple market data points then each corresponding method commits data once it reaches the buffer size limit 10 and not the time all methods combined buffer reaches cumulative size of 10. 
- 
-* **connection : influxdb : trade_commit_buffer** : Size of market trades to be buffered in memory before inserting data to InfluxDB.
- 
-Possible values : > 0
- 
-*Note :* All REST API and websocket methods buffers data locally and then commits.
-So for example, if the specified number is 10 and has multiple market data points then each corresponding method commits data once it reaches the buffer size limit 10 and not the time all methods combined buffer reaches cumulative size of 10. 
-
-***NATS settings*** : 
- 
-These options are needed only if you want to store data in NATS.
- 
-* **connection : nats : addresses** : A list of NATS servers to use.
- 
-* **connection : nats : username** : Username for NATS basic authentication.
- 
-Possible values : value or empty string if there is no authentication.
- 
-* **connection : nats : password** : Password for NATS basic authentication.
- 
-Possible values : value or empty string if there is no authentication.
- 
-* **connection : nats : subject_base_name** : Subject base name of the NATS.
-
-*Note :* For ticker the final subject name will be subject_base_name.ticker and for trade it is subject_base_name.trade.
- 
-* **connection : nats : request_timeout_sec** : Timeout for NATS connection.
- 
-Possible values : 0 for no timeout, greater than 0 sec for any other time.
-
-* **connection : nats : ticker_commit_buffer** : Size of market tickers to be buffered in memory before publishing data to NATS.
- 
-Possible values : > 0
- 
-*Note :* All REST API and websocket methods buffers data locally and then commits.
-So for example, if the specified number is 10 and has multiple market data points then each corresponding method commits data once it reaches the buffer size limit 10 and not the time all methods combined buffer reaches cumulative size of 10. 
- 
-NATS client library automatically buffers messages before sending them to the server which we cannot configure. So if the ticker_commit_buffer number is very big, then sometimes the data which is first internally buffered in the memory by the Cryptogalaxy app is pushed to the NATS server in chunks by the NATS client library so the last few trades may be still buffered for the next commit. This is not at all the concern, but mentioned here to just as an information to know.
- 
-* **connection : nats : trade_commit_buffer** : Size of market trades to be buffered in memory before publishing data to NATS.
- 
-Possible values : > 0
- 
-*Note :* All REST API and websocket methods buffers data locally and then commits.
-So for example, if the specified number is 10 and has multiple market data points then each corresponding method commits data once it reaches the buffer size limit 10 and not the time all methods combined buffer reaches cumulative size of 10. 
- 
-NATS client library automatically buffers messages before sending them to the server which we cannot configure. So if the ticker_commit_buffer number is very big, then sometimes the data which is first internally buffered in the memory by the Cryptogalaxy app is pushed to the NATS server in chunks by the NATS client library so the last few trades may be still buffered for the next commit. This is not at all the concern, but mentioned here to just as an information to know.
 
 ***ClickHouse settings*** : 
  
@@ -643,47 +404,6 @@ Possible values : > 0
 *Note :* All REST API and websocket methods buffers data locally and then commits.
 So for example, if the specified number is 10 and has multiple market data points then each corresponding method commits data once it reaches the buffer size limit 10 and not the time all methods combined buffer reaches cumulative size of 10. 
 
-***S3 settings*** : 
- 
-These options are needed only if you want to store data in s3.
- 
-* **connection : s3 : aws_region** : Where to send requests, such as us-west-2 or us-east-2.
- 
-* **connection : s3 : access_key_id** : AWS access key ID.
- 
-* **connection : s3 : secret_access_key** : AWS secret access key.
- 
-* **connection : s3 : bucket** : S3 bucket name.
- 
-* **connection : s3 : use_prefix_for_object_name** : Enable 0-9 prefixing for object name in the bucket. For example, if enabled, the object key name would be s3://cryptogalaxy/3/trade/binance1632400443835060152.json or it will be s3://cryptogalaxy/trade/binance1632400443835060152.json.
- 
-Possible values : boolean true for prefixing, false for no prefix.
-
-* **connection : s3 : request_timeout_sec** : S3 API request timeout.
- 
-Possible values : 0 for no timeout, greater than 0 sec for any other time.
- 
-* **connection : s3 : max_idle_conns** : This setting represents the maximum number of idle (keep-alive) connections across all hosts. One use case for increasing this value is when you are seeing many connections in a short period from the same clients.
- 
-Possible values : 0 for no limit, greater than 0 for any other number.
- 
-* **connection : s3 : max_idle_conns_per_host** : This setting represents the maximum number of idle (keep-alive) connections to keep per-host. One use case for increasing this value is when you are seeing many connections in a short period from the same clients.
- 
-Possible values : 0 for 2 (this may change in future), greater than 0 for any other number. 
-
-* **connection : s3 : ticker_commit_buffer** : Size of market tickers to be buffered in memory before inserting data to S3. Each commit to S3 will create a new object in the specified bucket.
- 
-Possible values : > 0
- 
-*Note :* All REST API and websocket methods buffers data locally and then commits.
-So for example, if the specified number is 10 and has multiple market data points then each corresponding method commits data once it reaches the buffer size limit 10 and not the time all methods combined buffer reaches cumulative size of 10. 
- 
-* **connection : s3 : trade_commit_buffer** : Size of market trades to be buffered in memory before inserting data to S3. Each commit to S3 will create a new object in the specified bucket.
- 
-Possible values : > 0
- 
-*Note :* All REST API and websocket methods buffers data locally and then commits.
-So for example, if the specified number is 10 and has multiple market data points then each corresponding method commits data once it reaches the buffer size limit 10 and not the time all methods combined buffer reaches cumulative size of 10. 
 
 ***Log settings*** :
  
@@ -697,189 +417,59 @@ Possible values : error, info, debug.
  
 ## Storage schema
  
-**MySQL**
- 
-Script can be found at [./scripts/mysql_schema.sql](./scripts/mysql_schema.sql).
- 
-```sql
-CREATE TABLE `ticker` (
- `id` bigint unsigned NOT NULL AUTO_INCREMENT,
- `exchange` varchar(32) NOT NULL,
- `market` varchar(32) NOT NULL,
- `price` decimal(64,8) NOT NULL,
- `timestamp` timestamp(3) NOT NULL,
- `created_at` timestamp(3) NOT NULL,
- PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-```
- 
-```sql
-CREATE TABLE `trade` (
- `id` bigint unsigned NOT NULL AUTO_INCREMENT,
- `exchange` varchar(32) NOT NULL,
- `market` varchar(32) NOT NULL,
- `trade_id` varchar(64) NULL,
- `side` varchar(8) NOT NULL,
- `size` decimal(64,8) NOT NULL,
- `price` decimal(64,8) NOT NULL,
- `timestamp` timestamp(3) NOT NULL,
- `created_at` timestamp(3) NOT NULL,
- PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-```
- 
-**Elasticsearch** 
- 
-Script can be found at [./scripts/elastic_search_schema.json](./scripts/elastic_search_schema.json).
- 
-```json
-{
-   "mappings": {
-       "properties": {
-           "channel": {
-               "type": "keyword"
-           },
-           "exchange": {
-               "type": "keyword"
-           },
-           "market": {
-               "type": "keyword"
-           },
-           "trade_id": {
-               "type": "keyword"
-           },
-           "side": {
-               "type": "keyword"
-           },
-           "size": {
-               "type": "double"
-           },
-           "price": {
-               "type": "double"
-           },
-           "timestamp": {
-               "type": "date"
-           },
-           "created_at": {
-               "type": "date"
-           }
-       }
-   }
-}
-```
-
-**InfluxDB**
-
-Line protocol used for writing data to InfluxDB is as follows :
-
-```
-ticker,exchange,market price timestamp
-
-trade,exchange,market,side trade_id,size,price timestamp
-```
-Currently there is no configuration to change the data points. So, if you want to change the tagsets or fieldsets you need to change it in the following file and then build it using [Go tools](https://golang.org/). It is just reordering of names in a single line.
-
-```
-${APP_PATH}/internal/storage/influxdb.go
-```
-
-*Note :* Sometime, ticker and trade data that we receive from the exchanges will have multiple records for the same timestamp. This data is deleted automatically by the InfluxDB as the system identifies unique data points by their measurement, tag set, and timestamp. Also we cannot add a unique id or timestamp as a new tag to the data set as it may significantly affect the performance of the InfluxDB read / writes. So to solve this problem, here we are adding 1 nanosecond to each timestamp entry of exchange and market combo till it reaches 1 millisecond to have a unique timestamp entry for each data point. This will not change anything as we are maintaining only millisecond precision ticker and trade records. Of course this will break if we have more than a million trades per millisecond per market in an exchange. But we are excluding that scenario.
-
-**NATS**
-
-Two subjects to be published in the NATS server in JSON format. One is for ticker data and another one is for trade data. Structures for the same are as follows :
-
-```
-configured_subject_base_name.ticker
-
-Exchange
-MktID
-MktCommitName
-Price
-Timestamp
-
-configured_subject_base_name.trade
-
-Exchange
-MktID
-MktCommitName
-TradeID
-Side
-Size
-Price
-Timestamp
-```
 
 **ClickHouse**
  
 Script can be found at [./scripts/clickhouse_schema.sql](./scripts/clickhouse_schema.sql).
  
 ```sql
-CREATE TABLE ticker
+SET allow_experimental_object_type = 1;
+SET output_format_json_named_tuples_as_objects = 1;
+```
+
+```sql
+CREATE TABLE ticker_ETH-USDT
 (
-    `exchange` String,
-    `market` String,
-    `price` Float64,
+    `data` JSON,
     `timestamp` DateTime64(3, 'UTC')
 ) ENGINE = MergeTree()
-ORDER BY (exchange, market, timestamp);
+PARTITION BY toYYYYMMDD(timestamp)
+ORDER BY (timestamp);
 ```
  
 ```sql
-CREATE TABLE trade
+CREATE TABLE trade_ETH-USDT
 (
-    `exchange` String,
-    `market` String,
-    `trade_id` String,
-    `side` String,
-    `size` Float64,
-    `price` Float64,
+    `data` JSON,
     `timestamp` DateTime64(3, 'UTC')
 ) ENGINE = MergeTree()
-ORDER BY (exchange, market, side, timestamp);
+PARTITION BY toYYYYMMDD(timestamp)
+ORDER BY (timestamp);
+```
+
+```sql
+CREATE TABLE level2_ETH-USDT
+(
+    `data` JSON,
+    `timestamp` DateTime64(9, 'UTC')
+) ENGINE = MergeTree()
+PARTITION BY toYYYYMMDD(timestamp)
+ORDER BY (timestamp);
+```
+
+```sql
+CREATE TABLE ordersbook_ETH-USDT
+(
+    `sequence` String,
+    `bids` JSON,
+    `asks` JSON,
+    `timestamp` DateTime64(3, 'UTC')
+) ENGINE = MergeTree()
+PARTITION BY toYYYYMMDD(timestamp)
+ORDER BY (timestamp);
 ```
 *Note :* Above table creation schema is a basic simple one. ClickHouse provides a lot of important configurations via create statement. You can choose a different table and database engine, can do data partition having ‘hot’ and ‘cold’ split, schedule old data deletion, configure sparse indexing structure with data replication etc and all through the simple create schema statements. So please go through the ClickHouse official document and customize the above script specific to your needs. If you want you can also change Float64 to Decimal column type to avoid floating arithmetic error in some use cases (of course overflow checks lead to operations slowdown, but then there is an option to turn it off also!). Only thing to remember is, you should not change the ticker and trade table column names. 
 
-**S3**
-
-Two objects to be published in the S3 bucket in JSON array format. One is for ticker data and another one is for trade data. Structures for the same are as follows :
-
-```
-s3_bucket_name/ticker/exchange_name_UNIX_NANOSECOND_TIMESTAMP
-ex : s3://cryptogalaxy/ticker/binance1632400443835060152.json
-
-OR if "connection:s3:use_prefix_for_object_name" set to 'true',
-
-s3_bucket_name/random [0-9]/ticker/exchange_name_UNIX_NANOSECOND_TIMESTAMP
-ex : s3://cryptogalaxy/3/ticker/binance1632400443835060152.json
-
-[{
-Exchange
-MktID
-MktCommitName
-Price
-Timestamp
-}]
-
-s3_bucket_name/trade/exchange_name_UNIX_NANOSECOND_TIMESTAMP
-ex : s3://cryptogalaxy/trade/binance1632400443835060152.json
-
-OR if "connection:s3:use_prefix_for_object_name" set to 'true',
-
-s3_bucket_name/random [0-9]/trade/exchange_name_UNIX_NANOSECOND_TIMESTAMP
-ex : s3://cryptogalaxy/3/trade/binance1632400443835060152.json
-
-[{
-Exchange
-MktID
-MktCommitName
-TradeID
-Side
-Size
-Price
-Timestamp
-}]
-```
 
 ## Output screenshots
  
