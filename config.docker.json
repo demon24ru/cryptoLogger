@@ -283,13 +283,9 @@
         "clickhouse": {
             "user": "",
             "password": "",
-            "URL": "tcp://127.0.0.1:9000",
+            "URL": "tcp://db:9000",
             "schema": "kucoin",
             "request_timeout_sec": 10,
-            "alt_hosts": [
-                "127.0.0.2:9000",
-                "127.0.0.3:9000"
-            ],
             "compression": false,
             "ticker_commit_buffer": 1000,
             "trade_commit_buffer": 1000,
@@ -299,6 +295,6 @@
     },
     "log": {
         "level": "error",
-        "file_path": "/var/log/cryptogalaxy/cryptogalaxy"
+        "file_path": "./cryptologger.log"
     }
 }
