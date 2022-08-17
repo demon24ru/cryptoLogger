@@ -1,13 +1,13 @@
 version: "3"
 services:
-  cryptologger:
+  cryptogalaxy:
     build:
       context: ./
       dockerfile: ./Dockerfile
-    container_name: cryptologger
+    container_name: cryptogalaxy
     restart: on-failure
     volumes:
-      - /cdnf/cryptologger.log:/cryptologger/cryptologger.log
+      - /cdnf/cryptologger.log:/cryptogalaxy/cryptologger.log
     depends_on:
       - db
   db:
