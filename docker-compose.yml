@@ -21,8 +21,9 @@ services:
     volumes:
       - /cdnf/db/log:/var/log/clickhouse-server
       - /cdnf/db/data:/var/lib/clickhouse
-#      - ./users.xml:/etc/clickhouse-server/users.xml
-#      - ./config.xml:/etc/clickhouse-server/config.xml
+      - ./settings/clickhouse/users.xml:/etc/clickhouse-server/users.xml
+      - ./settings/clickhouse/config.xml:/etc/clickhouse-server/config.xml
     ports:
       - "8123:8123"
       - "9000:9000"
+      - "9004:9004"
