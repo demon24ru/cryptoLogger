@@ -5,7 +5,7 @@ services:
       context: ./
       dockerfile: ./Dockerfile
     container_name: cryptogalaxy
-    restart: always
+    restart: on-failure
     volumes:
       - /cdnf/cryptologger.log:/cryptogalaxy/cryptologger.log
     depends_on:
