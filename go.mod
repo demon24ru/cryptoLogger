@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	github.com/ClickHouse/clickhouse-go v1.5.1
+	github.com/Kucoin/kucoin-go-sdk v1.2.12
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.21.0
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/gobwas/ws v1.1.0
@@ -27,11 +28,14 @@ require (
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/gorilla/websocket v1.4.2 // indirect
+	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/nats-io/nats-server/v2 v2.6.6 // indirect
 	github.com/nats-io/nkeys v0.3.0 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
+	github.com/sirupsen/logrus v1.4.1 // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
 	golang.org/x/crypto v0.0.0-20211209193657-4570a0811e8b // indirect
 	golang.org/x/sys v0.0.0-20211210111614-af8b64212486 // indirect

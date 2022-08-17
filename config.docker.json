@@ -33,7 +33,7 @@
                         {
                             "channel": "ordersbook",
                             "connector": "rest",
-                            "rest_ping_interval_sec": 60,
+                            "rest_ping_interval_sec": 300,
                             "storages": [
                                 "terminal"
                             ]
@@ -70,7 +70,7 @@
                         {
                             "channel": "ordersbook",
                             "connector": "rest",
-                            "rest_ping_interval_sec": 60,
+                            "rest_ping_interval_sec": 300,
                             "storages": [
                                 "terminal"
                             ]
@@ -107,7 +107,7 @@
                         {
                             "channel": "ordersbook",
                             "connector": "rest",
-                            "rest_ping_interval_sec": 60,
+                            "rest_ping_interval_sec": 300,
                             "storages": [
                                 "terminal"
                             ]
@@ -144,7 +144,7 @@
                         {
                             "channel": "ordersbook",
                             "connector": "rest",
-                            "rest_ping_interval_sec": 60,
+                            "rest_ping_interval_sec": 300,
                             "storages": [
                                 "terminal"
                             ]
@@ -181,7 +181,7 @@
                         {
                             "channel": "ordersbook",
                             "connector": "rest",
-                            "rest_ping_interval_sec": 60,
+                            "rest_ping_interval_sec": 300,
                             "storages": [
                                 "terminal"
                             ]
@@ -218,7 +218,7 @@
                         {
                             "channel": "ordersbook",
                             "connector": "rest",
-                            "rest_ping_interval_sec": 60,
+                            "rest_ping_interval_sec": 300,
                             "storages": [
                                 "terminal"
                             ]
@@ -255,7 +255,7 @@
                         {
                             "channel": "ordersbook",
                             "connector": "rest",
-                            "rest_ping_interval_sec": 60,
+                            "rest_ping_interval_sec": 300,
                             "storages": [
                                 "terminal"
                             ]
@@ -276,15 +276,25 @@
             "read_timeout_sec": 0
         },
         "rest": {
-            "request_timeout_sec": 10,
-            "max_idle_conns": 100,
-            "max_idle_conns_per_host": 10
+            "kucoin_key": "",
+            "kucoin_secret": "",
+            "kucoin_passphrase": ""
         },
-        "terminal": {
-            "ticker_commit_buffer": 1,
-            "trade_commit_buffer": 1,
-            "level2_commit_buffer": 1,
-            "orders_book_commit_buffer": 1
+        "clickhouse": {
+            "user": "",
+            "password": "",
+            "URL": "tcp://127.0.0.1:9000",
+            "schema": "kucoin",
+            "request_timeout_sec": 10,
+            "alt_hosts": [
+                "127.0.0.2:9000",
+                "127.0.0.3:9000"
+            ],
+            "compression": false,
+            "ticker_commit_buffer": 1000,
+            "trade_commit_buffer": 1000,
+            "level2_commit_buffer": 1000,
+            "orders_book_commit_buffer": 12
         }
     },
     "log": {

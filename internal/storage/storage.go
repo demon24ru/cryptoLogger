@@ -33,9 +33,10 @@ type Level2 struct {
 // ready to store.
 type OrdersBook struct {
 	MktCommitName string
+	Sequence      string
 	Timestamp     time.Time
 	Bids          string
-	Asks		  string
+	Asks          string
 }
 
 // Storage represents different storage options where the ticker and trade data can be stored.

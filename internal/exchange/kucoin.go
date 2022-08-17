@@ -6,12 +6,12 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
+	kcn "github.com/Kucoin/kucoin-go-sdk"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/milkywaybrain/cryptogalaxy/internal/config"
 	"github.com/milkywaybrain/cryptogalaxy/internal/connector"
@@ -20,7 +20,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 )
-
 
 // StartKucoin is for starting kucoin exchange functions.
 func StartKucoin(appCtx context.Context, markets []config.Market, retry *config.Retry, connCfg *config.Connection) error {
@@ -66,30 +65,30 @@ func StartKucoin(appCtx context.Context, markets []config.Market, retry *config.
 }
 
 type wsTickerData struct {
-	price			string
-	bestAsk			string
-	bestAskSize		string
-	bestBid			string
-	bestBidSize		string
+	price       string
+	bestAsk     string
+	bestAskSize string
+	bestBid     string
+	bestBidSize string
 }
 
 type kucoin struct {
-	ws                  connector.Websocket
-	rest                *connector.REST
-	connCfg             *config.Connection
-	cfgMap              map[cfgLookupKey]cfgLookupVal
-	channelIds          map[int][2]string
-	ter                 *storage.Terminal
-	clickhouse          *storage.ClickHouse
-	wsTerTickers        chan []storage.Ticker
-	wsTerTrades         chan []storage.Trade
-	wsTerLevel2  		chan []storage.Level2
-	wsTerOrdersBook  	chan []storage.OrdersBook
-	wsClickHouseTickers 	chan []storage.Ticker
-	wsClickHouseTrades  	chan []storage.Trade
-	wsClickHouseLevel2  	chan []storage.Level2
-	wsClickHouseOrdersBook  chan []storage.OrdersBook
-	wsPingIntSec        uint64
+	ws                     connector.Websocket
+	rest                   *connector.REST
+	connCfg                *config.Connection
+	cfgMap                 map[cfgLookupKey]cfgLookupVal
+	channelIds             map[int][2]string
+	ter                    *storage.Terminal
+	clickhouse             *storage.ClickHouse
+	wsTerTickers           chan []storage.Ticker
+	wsTerTrades            chan []storage.Trade
+	wsTerLevel2            chan []storage.Level2
+	wsTerOrdersBook        chan []storage.OrdersBook
+	wsClickHouseTickers    chan []storage.Ticker
+	wsClickHouseTrades     chan []storage.Trade
+	wsClickHouseLevel2     chan []storage.Level2
+	wsClickHouseOrdersBook chan []storage.OrdersBook
+	wsPingIntSec           uint64
 }
 
 type wsSubKucoin struct {
@@ -101,22 +100,12 @@ type wsSubKucoin struct {
 }
 
 type respKucoin struct {
-	ID            string         `json:"id"`
-	Topic         string         `json:"topic"`
-	Data          interface{} 	 `json:"data"`
-	Type          string         `json:"type"`
+	ID            string      `json:"id"`
+	Topic         string      `json:"topic"`
+	Data          interface{} `json:"data"`
+	Type          string      `json:"type"`
 	mktCommitName string
-	data		  string
-}
-
-type restRespKucoin struct {
-	Data restOrdersBook `json:"data"`
-}
-
-type restOrdersBook struct {
-	Time 		  interface{} 	  `json:"time"`
-	Bids		  [][]string	  `json:"bids"`
-	Asks		  [][]string	  `json:"asks"`
+	data          string
 }
 
 type wsConnectRespKucoin struct {
@@ -130,7 +119,6 @@ type wsConnectRespKucoin struct {
 		} `json:"instanceServers"`
 	} `json:"data"`
 }
-
 
 func newKucoin(appCtx context.Context, markets []config.Market, connCfg *config.Connection) error {
 
@@ -184,7 +172,6 @@ func newKucoin(appCtx context.Context, markets []config.Market, connCfg *config.
 							return WsLevel2ToStorage(ctx, k.ter, k.wsTerLevel2)
 						})
 					}
-
 
 					if k.clickhouse != nil {
 						kucoinErrGroup.Go(func() error {
@@ -462,7 +449,7 @@ func (k *kucoin) readWs(ctx context.Context) error {
 	cd := commitData{
 		terTickers:        make([]storage.Ticker, 0, k.connCfg.Terminal.TickerCommitBuf),
 		terTrades:         make([]storage.Trade, 0, k.connCfg.Terminal.TradeCommitBuf),
-		terLevel2: 			make([]storage.Level2, 0, k.connCfg.Terminal.Level2CommitBuf),
+		terLevel2:         make([]storage.Level2, 0, k.connCfg.Terminal.Level2CommitBuf),
 		clickHouseTickers: make([]storage.Ticker, 0, k.connCfg.ClickHouse.TickerCommitBuf),
 		clickHouseTrades:  make([]storage.Trade, 0, k.connCfg.ClickHouse.TradeCommitBuf),
 		clickHouseLevel2:  make([]storage.Level2, 0, k.connCfg.ClickHouse.TradeCommitBuf),
@@ -567,13 +554,13 @@ func (k *kucoin) readWs(ctx context.Context) error {
 
 						badBid := false
 						switch bids.Len() {
-							case 0:
+						case 0:
+							badBid = true
+						case 1:
+							v := reflect.ValueOf(reflect.ValueOf(bids.Index(0).Interface()).Index(0).Interface()).Interface().(string)
+							if v == "0" {
 								badBid = true
-							case 1:
-								v := reflect.ValueOf(reflect.ValueOf(bids.Index(0).Interface()).Index(0).Interface()).Interface().(string)
-								if v == "0" {
-									badBid = true
-								}
+							}
 						}
 
 						badAsk := false
@@ -742,34 +729,34 @@ func (k *kucoin) connectRest() error {
 // buffers the same in memory and
 // then sends it to different storage systems for commit through go channels.
 func (k *kucoin) processREST(ctx context.Context, mktID string, mktCommitName string, channel string, interval int) error {
-	var (
-		req *http.Request
-		q   url.Values
-		err error
-	)
+	//var (
+	//	//req *http.Request
+	//	//q   url.Values
+	//	err error
+	//)
 
 	cd := commitData{
-		terOrdersBooks:         make([]storage.OrdersBook, 0, k.connCfg.Terminal.OrdersBookCommitBuf),
-		clickHouseOrdersBook:  make([]storage.OrdersBook, 0, k.connCfg.ClickHouse.OrdersBookCommitBuf),
+		terOrdersBooks:       make([]storage.OrdersBook, 0, k.connCfg.Terminal.OrdersBookCommitBuf),
+		clickHouseOrdersBook: make([]storage.OrdersBook, 0, k.connCfg.ClickHouse.OrdersBookCommitBuf),
 	}
 
-	switch channel {
-
-	// Returns 100 trades.
-	// If the configured interval gap is big, then maybe it will not return all the trades
-	// and if the gap is too small, maybe it will return duplicate ones.
-	// Better to use websocket.
-	case "ordersbook":
-		req, err = k.rest.Request(ctx, "GET", config.KucoinRESTBaseURL+"market/orderbook/level2_100")
-		if err != nil {
-			if !errors.Is(err, ctx.Err()) {
-				logErrStack(err)
-			}
-			return err
-		}
-		q = req.URL.Query()
-		q.Add("symbol", mktID)
-	}
+	//switch channel {
+	//
+	//// Returns 100 trades.
+	//// If the configured interval gap is big, then maybe it will not return all the trades
+	//// and if the gap is too small, maybe it will return duplicate ones.
+	//// Better to use websocket.
+	//case "ordersbook":
+	//	req, err = k.rest.Request(ctx, "GET", config.KucoinRESTV3URL+"market/orderbook/level2")
+	//	if err != nil {
+	//		if !errors.Is(err, ctx.Err()) {
+	//			logErrStack(err)
+	//		}
+	//		return err
+	//	}
+	//	q = req.URL.Query()
+	//	q.Add("symbol", mktID)
+	//}
 
 	tick := time.NewTicker(time.Duration(interval) * time.Second)
 	defer tick.Stop()
@@ -779,39 +766,50 @@ func (k *kucoin) processREST(ctx context.Context, mktID string, mktCommitName st
 
 			switch channel {
 			case "ordersbook":
-				req.URL.RawQuery = q.Encode()
-				resp, err := k.rest.Do(req)
+				rsp, err := k.rest.KucoinService.AggregatedFullOrderBookV3(mktCommitName)
 				if err != nil {
-					if !errors.Is(err, ctx.Err()) {
-						logErrStack(err)
-					}
-					return err
-				}
-
-				rr := restRespKucoin{}
-				if err = jsoniter.NewDecoder(resp.Body).Decode(&rr); err != nil {
 					logErrStack(err)
-					resp.Body.Close()
 					return err
 				}
-				resp.Body.Close()
 
-				// Time sent is in string format for websocket, int format for REST.
-				t, ok := rr.Data.Time.(float64)
-				if !ok {
-					log.Error().Str("exchange", "kucoin").Str("func", "processREST").Interface("time", rr.Data.Time).Msg("")
-					return errors.New("cannot convert trade data field time to float")
+				orbk := kcn.FullOrderBookModel{}
+				if err := rsp.ReadData(&orbk); err != nil {
+					logErrStack(err)
+					return err
 				}
+				//req.URL.RawQuery = q.Encode()
+				//resp, err := k.rest.Do(req)
+				//if err != nil {
+				//	if !errors.Is(err, ctx.Err()) {
+				//		logErrStack(err)
+				//	}
+				//	return err
+				//}
+				//
+				//rr := restRespKucoin{}
+				//if err = jsoniter.NewDecoder(resp.Body).Decode(&rr); err != nil {
+				//	logErrStack(err)
+				//	resp.Body.Close()
+				//	return err
+				//}
+				//resp.Body.Close()
+				//
+				//// Time sent is in string format for websocket, int format for REST.
+				//t, ok := rr.Data.Time.(float64)
+				//if !ok {
+				//	log.Error().Str("exchange", "kucoin").Str("func", "processREST").Interface("time", rr.Data.Time).Msg("")
+				//	return errors.New("cannot convert trade data field time to float")
+				//}
 
 				var bids string
-				bids, err = jsoniter.MarshalToString(rr.Data.Bids)
+				bids, err = jsoniter.MarshalToString(orbk.Bids)
 				if err != nil {
 					logErrStack(err)
 					return err
 				}
 
 				var asks string
-				asks, err = jsoniter.MarshalToString(rr.Data.Asks)
+				asks, err = jsoniter.MarshalToString(orbk.Asks)
 				if err != nil {
 					logErrStack(err)
 					return err
@@ -819,9 +817,10 @@ func (k *kucoin) processREST(ctx context.Context, mktID string, mktCommitName st
 
 				ordersbook := storage.OrdersBook{
 					MktCommitName: mktCommitName,
+					Sequence:      orbk.Sequence,
 					Bids:          bids,
 					Asks:          asks,
-					Timestamp:     time.Unix(0, int64(t)).UTC(),
+					Timestamp:     time.Unix(0, orbk.Time).UTC(),
 				}
 
 				key := cfgLookupKey{market: ordersbook.MktCommitName, channel: "ordersbook"}

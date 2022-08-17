@@ -8,6 +8,9 @@ github.com/ClickHouse/clickhouse-go/lib/data
 github.com/ClickHouse/clickhouse-go/lib/lz4
 github.com/ClickHouse/clickhouse-go/lib/protocol
 github.com/ClickHouse/clickhouse-go/lib/types
+# github.com/Kucoin/kucoin-go-sdk v1.2.12
+## explicit; go 1.13
+github.com/Kucoin/kucoin-go-sdk
 # github.com/aws/aws-sdk-go-v2 v1.11.2
 ## explicit; go 1.15
 github.com/aws/aws-sdk-go-v2/aws
@@ -93,9 +96,15 @@ github.com/gobwas/ws
 github.com/gobwas/ws/wsutil
 # github.com/golang/protobuf v1.5.2
 ## explicit; go 1.9
+# github.com/gorilla/websocket v1.4.2
+## explicit; go 1.12
+github.com/gorilla/websocket
 # github.com/json-iterator/go v1.1.12
 ## explicit; go 1.12
 github.com/json-iterator/go
+# github.com/konsorten/go-windows-terminal-sequences v1.0.1
+## explicit
+github.com/konsorten/go-windows-terminal-sequences
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 ## explicit
 github.com/modern-go/concurrent
@@ -125,6 +134,9 @@ github.com/rs/zerolog/internal/cbor
 github.com/rs/zerolog/internal/json
 github.com/rs/zerolog/log
 github.com/rs/zerolog/pkgerrors
+# github.com/sirupsen/logrus v1.4.1
+## explicit
+github.com/sirupsen/logrus
 # github.com/stretchr/testify v1.7.0
 ## explicit; go 1.13
 # golang.org/x/crypto v0.0.0-20211209193657-4570a0811e8b

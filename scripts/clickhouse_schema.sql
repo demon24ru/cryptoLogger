@@ -24,6 +24,7 @@ ORDER BY (timestamp);
 
 CREATE TABLE ordersbook_
 (
+    `sequence` String,
     `bids` String,
     `asks` String,
     `timestamp` DateTime64(3, 'UTC')

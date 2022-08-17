@@ -33,7 +33,7 @@ const (
 
 	// KucoinRESTBaseURL is the kucoin exchange base REST url.
 	KucoinRESTBaseURL = "https://api.kucoin.com/api/v1/"
-	KucoinRESTV3URL = "https://api.kucoin.com/api/v3/"
+	KucoinRESTV3URL   = "https://api.kucoin.com/api/v3/"
 
 	// BitstampWebsocketURL is the bitstamp exchange websocket url.
 	BitstampWebsocketURL = "wss://ws.bitstamp.net/"
@@ -212,17 +212,20 @@ type WS struct {
 
 // REST contains config values for REST API connection.
 type REST struct {
-	ReqTimeoutSec       int `json:"request_timeout_sec"`
-	MaxIdleConns        int `json:"max_idle_conns"`
-	MaxIdleConnsPerHost int `json:"max_idle_conns_per_host"`
+	ReqTimeoutSec       int    `json:"request_timeout_sec"`
+	MaxIdleConns        int    `json:"max_idle_conns"`
+	MaxIdleConnsPerHost int    `json:"max_idle_conns_per_host"`
+	KucoinKey           string `json:"kucoin_key"`
+	KucoinSecret        string `json:"kucoin_secret"`
+	KucoinPassphrase    string `json:"kucoin_passphrase"`
 }
 
 // Terminal contains config values for terminal display.
 type Terminal struct {
-	TickerCommitBuf int `json:"ticker_commit_buffer"`
-	TradeCommitBuf  int `json:"trade_commit_buffer"`
-	Level2CommitBuf  int `json:"level2_commit_buffer"`
-	OrdersBookCommitBuf  int `json:"orders_book_commit_buffer"`
+	TickerCommitBuf     int `json:"ticker_commit_buffer"`
+	TradeCommitBuf      int `json:"trade_commit_buffer"`
+	Level2CommitBuf     int `json:"level2_commit_buffer"`
+	OrdersBookCommitBuf int `json:"orders_book_commit_buffer"`
 }
 
 // MySQL contains config values for mysql.
@@ -277,17 +280,17 @@ type NATS struct {
 
 // ClickHouse contains config values for clickhouse.
 type ClickHouse struct {
-	User            string   `josn:"user"`
-	Password        string   `json:"password"`
-	URL             string   `json:"URL"`
-	Schema          string   `json:"schema"`
-	ReqTimeoutSec   int      `json:"request_timeout_sec"`
-	AltHosts        []string `json:"alt_hosts"`
-	Compression     bool     `json:"compression"`
-	TickerCommitBuf int      `json:"ticker_commit_buffer"`
-	TradeCommitBuf  int      `json:"trade_commit_buffer"`
-	Level2CommitBuf  int      `json:"level2_commit_buffer"`
-	OrdersBookCommitBuf  int  `json:"orders_book_commit_buffer"`
+	User                string   `josn:"user"`
+	Password            string   `json:"password"`
+	URL                 string   `json:"URL"`
+	Schema              string   `json:"schema"`
+	ReqTimeoutSec       int      `json:"request_timeout_sec"`
+	AltHosts            []string `json:"alt_hosts"`
+	Compression         bool     `json:"compression"`
+	TickerCommitBuf     int      `json:"ticker_commit_buffer"`
+	TradeCommitBuf      int      `json:"trade_commit_buffer"`
+	Level2CommitBuf     int      `json:"level2_commit_buffer"`
+	OrdersBookCommitBuf int      `json:"orders_book_commit_buffer"`
 }
 
 // S3 contains config values for s3.

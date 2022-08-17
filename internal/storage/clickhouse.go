@@ -152,7 +152,7 @@ func (c *ClickHouse) CommitOrdersBook(appCtx context.Context, data []OrdersBook)
 	if err != nil {
 		return err
 	}
-	stmt, err := tx.Prepare("INSERT INTO ordersbook_? (bids, asks, timestamp) VALUES (?, ?, ?)")
+	stmt, err := tx.Prepare("INSERT INTO ordersbook_? (sequence, bids, asks, timestamp) VALUES (?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -160,7 +160,7 @@ func (c *ClickHouse) CommitOrdersBook(appCtx context.Context, data []OrdersBook)
 
 	for i := range data {
 		ordersBook := data[i]
-		_, err := stmt.Exec(ordersBook.MktCommitName, ordersBook.Bids, ordersBook.Asks, ordersBook.Timestamp.Format(clickHouseTimestamp))
+		_, err := stmt.Exec(ordersBook.MktCommitName, ordersBook.Sequence, ordersBook.Bids, ordersBook.Asks, ordersBook.Timestamp.Format(clickHouseTimestamp))
 		if err != nil {
 			return err
 		}
