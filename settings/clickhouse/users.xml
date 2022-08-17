@@ -21,9 +21,9 @@
         </default>
 
         <!-- Profile that allows only read queries. -->
-<!--        <readonly>-->
-<!--            <readonly>1</readonly>-->
-<!--        </readonly>-->
+        <readonly>
+            <readonly>2</readonly>
+        </readonly>
     </profiles>
 
     <!-- Users and ACL. -->

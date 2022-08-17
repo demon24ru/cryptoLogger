@@ -163,25 +163,25 @@ func newKucoin(appCtx context.Context, markets []config.Market, connCfg *config.
 
 					if k.ter != nil {
 						kucoinErrGroup.Go(func() error {
-							return WsTickersToStorage(ctx, k.ter, k.wsTerTickers)
+							return WsTickersToStorage(ctx, k.ter, k.wsTerTickers, market.ID)
 						})
 						kucoinErrGroup.Go(func() error {
-							return WsTradesToStorage(ctx, k.ter, k.wsTerTrades)
+							return WsTradesToStorage(ctx, k.ter, k.wsTerTrades, market.ID)
 						})
 						kucoinErrGroup.Go(func() error {
-							return WsLevel2ToStorage(ctx, k.ter, k.wsTerLevel2)
+							return WsLevel2ToStorage(ctx, k.ter, k.wsTerLevel2, market.ID)
 						})
 					}
 
 					if k.clickhouse != nil {
 						kucoinErrGroup.Go(func() error {
-							return WsTickersToStorage(ctx, k.clickhouse, k.wsClickHouseTickers)
+							return WsTickersToStorage(ctx, k.clickhouse, k.wsClickHouseTickers, market.ID)
 						})
 						kucoinErrGroup.Go(func() error {
-							return WsTradesToStorage(ctx, k.clickhouse, k.wsClickHouseTrades)
+							return WsTradesToStorage(ctx, k.clickhouse, k.wsClickHouseTrades, market.ID)
 						})
 						kucoinErrGroup.Go(func() error {
-							return WsLevel2ToStorage(ctx, k.clickhouse, k.wsClickHouseLevel2)
+							return WsLevel2ToStorage(ctx, k.clickhouse, k.wsClickHouseLevel2, market.ID)
 						})
 					}
 
@@ -220,11 +220,10 @@ func newKucoin(appCtx context.Context, markets []config.Market, connCfg *config.
 				} else {
 					mktCommitName = market.ID
 				}
-				mktID := market.ID
 				channel := info.Channel
 				restPingIntSec := info.RESTPingIntSec
 				kucoinErrGroup.Go(func() error {
-					return k.processREST(ctx, mktID, mktCommitName, channel, restPingIntSec)
+					return k.processREST(ctx, mktCommitName, channel, restPingIntSec)
 				})
 
 				restCount++
@@ -452,7 +451,7 @@ func (k *kucoin) readWs(ctx context.Context) error {
 		terLevel2:         make([]storage.Level2, 0, k.connCfg.Terminal.Level2CommitBuf),
 		clickHouseTickers: make([]storage.Ticker, 0, k.connCfg.ClickHouse.TickerCommitBuf),
 		clickHouseTrades:  make([]storage.Trade, 0, k.connCfg.ClickHouse.TradeCommitBuf),
-		clickHouseLevel2:  make([]storage.Level2, 0, k.connCfg.ClickHouse.TradeCommitBuf),
+		clickHouseLevel2:  make([]storage.Level2, 0, k.connCfg.ClickHouse.Level2CommitBuf),
 	}
 
 	storeTick := make(map[string]wsTickerData)
@@ -728,7 +727,7 @@ func (k *kucoin) connectRest() error {
 // transforms it to a common ticker / trade store format,
 // buffers the same in memory and
 // then sends it to different storage systems for commit through go channels.
-func (k *kucoin) processREST(ctx context.Context, mktID string, mktCommitName string, channel string, interval int) error {
+func (k *kucoin) processREST(ctx context.Context, mktCommitName string, channel string, interval int) error {
 
 	cd := commitData{
 		terOrdersBooks:       make([]storage.OrdersBook, 0, k.connCfg.Terminal.OrdersBookCommitBuf),
@@ -783,7 +782,7 @@ func (k *kucoin) processREST(ctx context.Context, mktID string, mktCommitName st
 					cd.terOrdersBookCount++
 					cd.terOrdersBooks = append(cd.terOrdersBooks, ordersbook)
 					if cd.terOrdersBookCount == k.connCfg.Terminal.OrdersBookCommitBuf {
-						err := k.ter.CommitOrdersBook(ctx, cd.terOrdersBooks)
+						err := k.ter.CommitOrdersBook(ctx, cd.terOrdersBooks, mktCommitName)
 						if err != nil {
 							if !errors.Is(err, ctx.Err()) {
 								logErrStack(err)
@@ -799,7 +798,7 @@ func (k *kucoin) processREST(ctx context.Context, mktID string, mktCommitName st
 					cd.clickHouseOrdersBookCount++
 					cd.clickHouseOrdersBook = append(cd.clickHouseOrdersBook, ordersbook)
 					if cd.clickHouseOrdersBookCount == k.connCfg.ClickHouse.OrdersBookCommitBuf {
-						err := k.clickhouse.CommitOrdersBook(ctx, cd.clickHouseOrdersBook)
+						err := k.clickhouse.CommitOrdersBook(ctx, cd.clickHouseOrdersBook, mktCommitName)
 						if err != nil {
 							if !errors.Is(err, ctx.Err()) {
 								logErrStack(err)

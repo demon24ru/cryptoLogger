@@ -32,22 +32,22 @@ type cfgLookupVal struct {
 }
 
 type commitData struct {
-	terTickersCount        int
-	terTradesCount         int
-	terLevel2Count         int
-	terOrdersBookCount     int
-	clickHouseTickersCount int
-	clickHouseTradesCount  int
-	clickHouseLevel2Count  int
-	clickHouseOrdersBookCount  int
-	terTickers             []storage.Ticker
-	terTrades              []storage.Trade
-	terLevel2              []storage.Level2
-	terOrdersBooks         []storage.OrdersBook
-	clickHouseTickers      []storage.Ticker
-	clickHouseTrades       []storage.Trade
-	clickHouseLevel2       []storage.Level2
-	clickHouseOrdersBook   []storage.OrdersBook
+	terTickersCount           int
+	terTradesCount            int
+	terLevel2Count            int
+	terOrdersBookCount        int
+	clickHouseTickersCount    int
+	clickHouseTradesCount     int
+	clickHouseLevel2Count     int
+	clickHouseOrdersBookCount int
+	terTickers                []storage.Ticker
+	terTrades                 []storage.Trade
+	terLevel2                 []storage.Level2
+	terOrdersBooks            []storage.OrdersBook
+	clickHouseTickers         []storage.Ticker
+	clickHouseTrades          []storage.Trade
+	clickHouseLevel2          []storage.Level2
+	clickHouseOrdersBook      []storage.OrdersBook
 }
 
 type influxTimeVal struct {
@@ -66,11 +66,11 @@ type influxTimeVal struct {
 }
 
 // WsTickersToStorage batch inserts input ticker data from websocket to specified storage.
-func WsTickersToStorage(ctx context.Context, str storage.Storage, tickers <-chan []storage.Ticker) error {
+func WsTickersToStorage(ctx context.Context, str storage.Storage, tickers <-chan []storage.Ticker, marketID string) error {
 	for {
 		select {
 		case data := <-tickers:
-			err := str.CommitTickers(ctx, data)
+			err := str.CommitTickers(ctx, data, marketID)
 			if err != nil {
 				if !errors.Is(err, ctx.Err()) {
 					logErrStack(err)
@@ -84,11 +84,11 @@ func WsTickersToStorage(ctx context.Context, str storage.Storage, tickers <-chan
 }
 
 // WsTradesToStorage batch inserts input trade data from websocket to specified storage.
-func WsTradesToStorage(ctx context.Context, str storage.Storage, trades <-chan []storage.Trade) error {
+func WsTradesToStorage(ctx context.Context, str storage.Storage, trades <-chan []storage.Trade, marketID string) error {
 	for {
 		select {
 		case data := <-trades:
-			err := str.CommitTrades(ctx, data)
+			err := str.CommitTrades(ctx, data, marketID)
 			if err != nil {
 				if !errors.Is(err, ctx.Err()) {
 					logErrStack(err)
@@ -102,11 +102,11 @@ func WsTradesToStorage(ctx context.Context, str storage.Storage, trades <-chan [
 }
 
 // WsLevel2ToStorage batch inserts input trade data from websocket to specified storage.
-func WsLevel2ToStorage(ctx context.Context, str storage.Storage, level2 <-chan []storage.Level2) error {
+func WsLevel2ToStorage(ctx context.Context, str storage.Storage, level2 <-chan []storage.Level2, marketID string) error {
 	for {
 		select {
 		case data := <-level2:
-			err := str.CommitLevel2(ctx, data)
+			err := str.CommitLevel2(ctx, data, marketID)
 			if err != nil {
 				if !errors.Is(err, ctx.Err()) {
 					logErrStack(err)

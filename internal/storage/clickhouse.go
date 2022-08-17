@@ -72,12 +72,12 @@ func GetClickHouse() *ClickHouse {
 }
 
 // CommitTickers batch inserts input ticker data to clickHouse.
-func (c *ClickHouse) CommitTickers(appCtx context.Context, data []Ticker) error {
+func (c *ClickHouse) CommitTickers(appCtx context.Context, data []Ticker, marketID string) error {
 	tx, err := c.DB.Begin()
 	if err != nil {
 		return err
 	}
-	stmt, err := tx.Prepare("INSERT INTO ? (data, timestamp) VALUES (?, ?)")
+	stmt, err := tx.Prepare("INSERT INTO ticker_" + strings.Replace(marketID, "-", "_", 2) + " (data, timestamp) VALUES (?, ?)")
 	if err != nil {
 		return err
 	}
@@ -85,7 +85,7 @@ func (c *ClickHouse) CommitTickers(appCtx context.Context, data []Ticker) error 
 
 	for i := range data {
 		ticker := data[i]
-		_, err := stmt.Exec("ticker_"+strings.Replace(ticker.MktCommitName, "-", "_", 2), ticker.Data, ticker.Timestamp.Format(clickHouseTimestamp))
+		_, err := stmt.Exec(ticker.Data, ticker.Timestamp.Format(clickHouseTimestamp))
 		if err != nil {
 			return err
 		}
@@ -97,12 +97,12 @@ func (c *ClickHouse) CommitTickers(appCtx context.Context, data []Ticker) error 
 }
 
 // CommitTrades batch inserts input trade data to clickHouse.
-func (c *ClickHouse) CommitTrades(appCtx context.Context, data []Trade) error {
+func (c *ClickHouse) CommitTrades(appCtx context.Context, data []Trade, marketID string) error {
 	tx, err := c.DB.Begin()
 	if err != nil {
 		return err
 	}
-	stmt, err := tx.Prepare("INSERT INTO ? (data, timestamp) VALUES (?, ?)")
+	stmt, err := tx.Prepare("INSERT INTO trade_" + strings.Replace(marketID, "-", "_", 2) + " (data, timestamp) VALUES (?, ?)")
 	if err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func (c *ClickHouse) CommitTrades(appCtx context.Context, data []Trade) error {
 
 	for i := range data {
 		trade := data[i]
-		_, err := stmt.Exec("trade_"+strings.Replace(trade.MktCommitName, "-", "_", 2), trade.Data, trade.Timestamp.Format(clickHouseTimestamp))
+		_, err := stmt.Exec(trade.Data, trade.Timestamp.Format(clickHouseTimestamp))
 		if err != nil {
 			return err
 		}
@@ -122,12 +122,12 @@ func (c *ClickHouse) CommitTrades(appCtx context.Context, data []Trade) error {
 }
 
 // CommitLevel2 batch inserts input level2 data to clickHouse.
-func (c *ClickHouse) CommitLevel2(appCtx context.Context, data []Level2) error {
+func (c *ClickHouse) CommitLevel2(appCtx context.Context, data []Level2, marketID string) error {
 	tx, err := c.DB.Begin()
 	if err != nil {
 		return err
 	}
-	stmt, err := tx.Prepare("INSERT INTO ? (data, timestamp) VALUES (?, ?)")
+	stmt, err := tx.Prepare("INSERT INTO level2_" + strings.Replace(marketID, "-", "_", 2) + " (data, timestamp) VALUES (?, ?)")
 	if err != nil {
 		return err
 	}
@@ -135,11 +135,13 @@ func (c *ClickHouse) CommitLevel2(appCtx context.Context, data []Level2) error {
 
 	for i := range data {
 		level2 := data[i]
-		_, err := stmt.Exec("level2_"+strings.Replace(level2.MktCommitName, "-", "_", 2), level2.Data, level2.Timestamp.Format(clickHouseTimestampMicroSec))
+		_, err := stmt.Exec(level2.Data, level2.Timestamp.Format(clickHouseTimestampMicroSec))
 		if err != nil {
 			return err
 		}
+		fmt.Printf("Level2 %-15s\n", level2.MktCommitName)
 	}
+	fmt.Printf("Level2 END %-15s\n\n", marketID)
 	if err := tx.Commit(); err != nil {
 		return err
 	}
@@ -147,12 +149,12 @@ func (c *ClickHouse) CommitLevel2(appCtx context.Context, data []Level2) error {
 }
 
 // CommitOrdersBook batch inserts input Order Book data to clickHouse.
-func (c *ClickHouse) CommitOrdersBook(appCtx context.Context, data []OrdersBook) error {
+func (c *ClickHouse) CommitOrdersBook(appCtx context.Context, data []OrdersBook, marketID string) error {
 	tx, err := c.DB.Begin()
 	if err != nil {
 		return err
 	}
-	stmt, err := tx.Prepare("INSERT INTO ? (sequence, bids, asks, timestamp) VALUES (?, ?, ?, ?)")
+	stmt, err := tx.Prepare("INSERT INTO ordersbook_" + strings.Replace(marketID, "-", "_", 2) + " (sequence, bids, asks, timestamp) VALUES (?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -160,7 +162,7 @@ func (c *ClickHouse) CommitOrdersBook(appCtx context.Context, data []OrdersBook)
 
 	for i := range data {
 		ordersBook := data[i]
-		_, err := stmt.Exec("ordersbook_"+strings.Replace(ordersBook.MktCommitName, "-", "_", 2), ordersBook.Sequence, ordersBook.Bids, ordersBook.Asks, ordersBook.Timestamp.Format(clickHouseTimestamp))
+		_, err := stmt.Exec(ordersBook.Sequence, ordersBook.Bids, ordersBook.Asks, ordersBook.Timestamp.Format(clickHouseTimestamp))
 		if err != nil {
 			return err
 		}
