@@ -33,7 +33,7 @@
                         {
                             "channel": "ordersbook",
                             "connector": "rest",
-                            "rest_ping_interval_sec": 300,
+                            "rest_ping_interval_sec": 600,
                             "storages": [
                                 "terminal"
                             ]
@@ -70,7 +70,7 @@
                         {
                             "channel": "ordersbook",
                             "connector": "rest",
-                            "rest_ping_interval_sec": 300,
+                            "rest_ping_interval_sec": 600,
                             "storages": [
                                 "terminal"
                             ]
@@ -107,7 +107,7 @@
                         {
                             "channel": "ordersbook",
                             "connector": "rest",
-                            "rest_ping_interval_sec": 300,
+                            "rest_ping_interval_sec": 600,
                             "storages": [
                                 "terminal"
                             ]
@@ -144,7 +144,7 @@
                         {
                             "channel": "ordersbook",
                             "connector": "rest",
-                            "rest_ping_interval_sec": 300,
+                            "rest_ping_interval_sec": 600,
                             "storages": [
                                 "terminal"
                             ]
@@ -181,7 +181,7 @@
                         {
                             "channel": "ordersbook",
                             "connector": "rest",
-                            "rest_ping_interval_sec": 300,
+                            "rest_ping_interval_sec": 600,
                             "storages": [
                                 "terminal"
                             ]
@@ -218,7 +218,7 @@
                         {
                             "channel": "ordersbook",
                             "connector": "rest",
-                            "rest_ping_interval_sec": 300,
+                            "rest_ping_interval_sec": 600,
                             "storages": [
                                 "terminal"
                             ]
@@ -255,7 +255,7 @@
                         {
                             "channel": "ordersbook",
                             "connector": "rest",
-                            "rest_ping_interval_sec": 300,
+                            "rest_ping_interval_sec": 600,
                             "storages": [
                                 "terminal"
                             ]
@@ -294,7 +294,7 @@
             "ticker_commit_buffer": 1000,
             "trade_commit_buffer": 1000,
             "level2_commit_buffer": 1000,
-            "orders_book_commit_buffer": 12
+            "orders_book_commit_buffer": 3
         }
     },
     "log": {

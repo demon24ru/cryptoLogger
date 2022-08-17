@@ -729,34 +729,11 @@ func (k *kucoin) connectRest() error {
 // buffers the same in memory and
 // then sends it to different storage systems for commit through go channels.
 func (k *kucoin) processREST(ctx context.Context, mktID string, mktCommitName string, channel string, interval int) error {
-	//var (
-	//	//req *http.Request
-	//	//q   url.Values
-	//	err error
-	//)
 
 	cd := commitData{
 		terOrdersBooks:       make([]storage.OrdersBook, 0, k.connCfg.Terminal.OrdersBookCommitBuf),
 		clickHouseOrdersBook: make([]storage.OrdersBook, 0, k.connCfg.ClickHouse.OrdersBookCommitBuf),
 	}
-
-	//switch channel {
-	//
-	//// Returns 100 trades.
-	//// If the configured interval gap is big, then maybe it will not return all the trades
-	//// and if the gap is too small, maybe it will return duplicate ones.
-	//// Better to use websocket.
-	//case "ordersbook":
-	//	req, err = k.rest.Request(ctx, "GET", config.KucoinRESTV3URL+"market/orderbook/level2")
-	//	if err != nil {
-	//		if !errors.Is(err, ctx.Err()) {
-	//			logErrStack(err)
-	//		}
-	//		return err
-	//	}
-	//	q = req.URL.Query()
-	//	q.Add("symbol", mktID)
-	//}
 
 	tick := time.NewTicker(time.Duration(interval) * time.Second)
 	defer tick.Stop()
@@ -777,29 +754,6 @@ func (k *kucoin) processREST(ctx context.Context, mktID string, mktCommitName st
 					logErrStack(err)
 					return err
 				}
-				//req.URL.RawQuery = q.Encode()
-				//resp, err := k.rest.Do(req)
-				//if err != nil {
-				//	if !errors.Is(err, ctx.Err()) {
-				//		logErrStack(err)
-				//	}
-				//	return err
-				//}
-				//
-				//rr := restRespKucoin{}
-				//if err = jsoniter.NewDecoder(resp.Body).Decode(&rr); err != nil {
-				//	logErrStack(err)
-				//	resp.Body.Close()
-				//	return err
-				//}
-				//resp.Body.Close()
-				//
-				//// Time sent is in string format for websocket, int format for REST.
-				//t, ok := rr.Data.Time.(float64)
-				//if !ok {
-				//	log.Error().Str("exchange", "kucoin").Str("func", "processREST").Interface("time", rr.Data.Time).Msg("")
-				//	return errors.New("cannot convert trade data field time to float")
-				//}
 
 				var bids string
 				bids, err = jsoniter.MarshalToString(orbk.Bids)
