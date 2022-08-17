@@ -4,12 +4,12 @@ Cryptogalaxy is an app which will get any cryptocurrencies ticker and trade data
 
 <p>Currently supported exchanges :<br></p>
 
-<div>7. <img src="./docs/exchange/kucoin.png" title="Kucoin" height="24" width="24"/> Kucoin</div>
+<div><img src="./docs/exchange/kucoin.png" title="Kucoin" height="24" width="24"/> Kucoin</div>
  
 <p><br>Currently supported storages :<br></p>
 
 <div>1. <img src="./docs/storage/terminal.png" title="Terminal Output" height="24" width="24"/> Terminal Output</div>
-<div>6. <img src="./docs/storage/clickhouse.jpeg" title="ClickHouse" height="24" width="24"/> ClickHouse</div>
+<div>2. <img src="./docs/storage/clickhouse.jpeg" title="ClickHouse" height="24" width="24"/> ClickHouse</div>
  
 ---------------------------------------  
  * [Features](#features)
