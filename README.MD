@@ -665,3 +665,35 @@ Couple of things to note before code contribution :
 Cryptogalaxy is licensed under the [MIT License](./LICENSE).
   
 **Thank you all!** 
+
+
+## Docker & Docker-compose
+
+```shell
+apt update && apt -y install apt-transport-https ca-certificates curl gnupg2 software-properties-common
+curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
+add-apt-repository "deb https://download.docker.com/linux/debian $(lsb_release -cs) stable"
+apt update && apt -y install docker-ce
+# Docker-compose
+curl -L https://github.com/docker/compose/releases/download/v2.4.1/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose
+chmod +x /usr/local/bin/docker-compose
+```
+
+## Запуска проекта в Docker контейнере
+
+```shell
+# Запуск
+docker-compose -f docker-compose.yml up -d --build
+
+# Останов
+docker-compose -f docker-compose.yml down
+
+# Удаление остановленных контейнеров
+docker system prune -a --volumes
+
+# Запущеные контейнеры их ID
+docker ps -a
+
+# Логи контейнера по ID
+docker logs <ID>
+```
