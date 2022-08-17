@@ -1,15 +1,15 @@
 version: "3"
 services:
-#  cryptologger:
-#    build:
-#      context: ./
-#      dockerfile: ./Dockerfile
-#    container_name: cryptologger
-#    restart: on-failure
-#    volumes:
-#      - /cdnf/cryptologger.log:/cryptologger/cryptologger.log
-#    depends_on:
-#      - db
+  cryptologger:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    container_name: cryptologger
+    restart: on-failure
+    volumes:
+      - /cdnf/cryptologger.log:/cryptologger/cryptologger.log
+    depends_on:
+      - db
   db:
     image: yandex/clickhouse-server
     restart: always
