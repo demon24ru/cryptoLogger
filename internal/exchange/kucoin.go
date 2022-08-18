@@ -773,7 +773,7 @@ func (k *kucoin) processREST(ctx context.Context, mktCommitName string, channel 
 					Sequence:      orbk.Sequence,
 					Bids:          bids,
 					Asks:          asks,
-					Timestamp:     time.Unix(0, orbk.Time).UTC(),
+					Timestamp:     time.UnixMilli(orbk.Time).UTC(),
 				}
 
 				key := cfgLookupKey{market: ordersbook.MktCommitName, channel: "ordersbook"}
