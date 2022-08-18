@@ -8,5 +8,5 @@ FROM alpine:3.15
 WORKDIR /cryptogalaxy
 RUN apk update && apk add --no-cache --virtual --update linux-pam-dev
 COPY  --from=0 /build/cryptogalaxy /cryptogalaxy/cryptogalaxy
-COPY  config.json /cryptogalaxy/config.json
+#COPY  config.json /cryptogalaxy/config.json
 ENTRYPOINT ["/cryptogalaxy/cryptogalaxy"]

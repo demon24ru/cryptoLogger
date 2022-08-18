@@ -8,6 +8,7 @@ services:
     restart: always
     volumes:
       - /cdnf/cryptologger.log:/cryptogalaxy/cryptologger.log
+      - ./config.json:/cryptogalaxy/config.json
     depends_on:
       - db
     networks:
