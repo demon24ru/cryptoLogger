@@ -697,3 +697,5 @@ docker ps -a
 # Логи контейнера по ID
 docker logs <ID>
 ```
+
+[Docker clickHouse](https://netpoint-dc.com/blog/zapuskaem-server-yandex-clickhouse-v-vide-docker-s-nastroikoi-dlya-obrabotki-bolshogo-obema-dannih/)
