@@ -294,7 +294,7 @@
             "ticker_commit_buffer": 1000,
             "trade_commit_buffer": 1000,
             "level2_commit_buffer": 1000,
-            "orders_book_commit_buffer": 3
+            "orders_book_commit_buffer": 7
         }
     },
     "log": {
