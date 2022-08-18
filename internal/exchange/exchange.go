@@ -66,11 +66,11 @@ type influxTimeVal struct {
 }
 
 // WsTickersToStorage batch inserts input ticker data from websocket to specified storage.
-func WsTickersToStorage(ctx context.Context, str storage.Storage, tickers <-chan []storage.Ticker, marketID string) error {
+func WsTickersToStorage(ctx context.Context, str storage.Storage, tickers <-chan []storage.Ticker) error {
 	for {
 		select {
 		case data := <-tickers:
-			err := str.CommitTickers(ctx, data, marketID)
+			err := str.CommitTickers(ctx, data)
 			if err != nil {
 				if !errors.Is(err, ctx.Err()) {
 					logErrStack(err)
@@ -84,11 +84,11 @@ func WsTickersToStorage(ctx context.Context, str storage.Storage, tickers <-chan
 }
 
 // WsTradesToStorage batch inserts input trade data from websocket to specified storage.
-func WsTradesToStorage(ctx context.Context, str storage.Storage, trades <-chan []storage.Trade, marketID string) error {
+func WsTradesToStorage(ctx context.Context, str storage.Storage, trades <-chan []storage.Trade) error {
 	for {
 		select {
 		case data := <-trades:
-			err := str.CommitTrades(ctx, data, marketID)
+			err := str.CommitTrades(ctx, data)
 			if err != nil {
 				if !errors.Is(err, ctx.Err()) {
 					logErrStack(err)
@@ -102,11 +102,11 @@ func WsTradesToStorage(ctx context.Context, str storage.Storage, trades <-chan [
 }
 
 // WsLevel2ToStorage batch inserts input trade data from websocket to specified storage.
-func WsLevel2ToStorage(ctx context.Context, str storage.Storage, level2 <-chan []storage.Level2, marketID string) error {
+func WsLevel2ToStorage(ctx context.Context, str storage.Storage, level2 <-chan []storage.Level2) error {
 	for {
 		select {
 		case data := <-level2:
-			err := str.CommitLevel2(ctx, data, marketID)
+			err := str.CommitLevel2(ctx, data)
 			if err != nil {
 				if !errors.Is(err, ctx.Err()) {
 					logErrStack(err)

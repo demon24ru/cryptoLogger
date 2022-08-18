@@ -163,25 +163,25 @@ func newKucoin(appCtx context.Context, markets []config.Market, connCfg *config.
 
 					if k.ter != nil {
 						kucoinErrGroup.Go(func() error {
-							return WsTickersToStorage(ctx, k.ter, k.wsTerTickers, market.ID)
+							return WsTickersToStorage(ctx, k.ter, k.wsTerTickers)
 						})
 						kucoinErrGroup.Go(func() error {
-							return WsTradesToStorage(ctx, k.ter, k.wsTerTrades, market.ID)
+							return WsTradesToStorage(ctx, k.ter, k.wsTerTrades)
 						})
 						kucoinErrGroup.Go(func() error {
-							return WsLevel2ToStorage(ctx, k.ter, k.wsTerLevel2, market.ID)
+							return WsLevel2ToStorage(ctx, k.ter, k.wsTerLevel2)
 						})
 					}
 
 					if k.clickhouse != nil {
 						kucoinErrGroup.Go(func() error {
-							return WsTickersToStorage(ctx, k.clickhouse, k.wsClickHouseTickers, market.ID)
+							return WsTickersToStorage(ctx, k.clickhouse, k.wsClickHouseTickers)
 						})
 						kucoinErrGroup.Go(func() error {
-							return WsTradesToStorage(ctx, k.clickhouse, k.wsClickHouseTrades, market.ID)
+							return WsTradesToStorage(ctx, k.clickhouse, k.wsClickHouseTrades)
 						})
 						kucoinErrGroup.Go(func() error {
-							return WsLevel2ToStorage(ctx, k.clickhouse, k.wsClickHouseLevel2, market.ID)
+							return WsLevel2ToStorage(ctx, k.clickhouse, k.wsClickHouseLevel2)
 						})
 					}
 
@@ -782,7 +782,7 @@ func (k *kucoin) processREST(ctx context.Context, mktCommitName string, channel 
 					cd.terOrdersBookCount++
 					cd.terOrdersBooks = append(cd.terOrdersBooks, ordersbook)
 					if cd.terOrdersBookCount == k.connCfg.Terminal.OrdersBookCommitBuf {
-						err := k.ter.CommitOrdersBook(ctx, cd.terOrdersBooks, mktCommitName)
+						err := k.ter.CommitOrdersBook(ctx, cd.terOrdersBooks)
 						if err != nil {
 							if !errors.Is(err, ctx.Err()) {
 								logErrStack(err)
@@ -798,7 +798,7 @@ func (k *kucoin) processREST(ctx context.Context, mktCommitName string, channel 
 					cd.clickHouseOrdersBookCount++
 					cd.clickHouseOrdersBook = append(cd.clickHouseOrdersBook, ordersbook)
 					if cd.clickHouseOrdersBookCount == k.connCfg.ClickHouse.OrdersBookCommitBuf {
-						err := k.clickhouse.CommitOrdersBook(ctx, cd.clickHouseOrdersBook, mktCommitName)
+						err := k.clickhouse.CommitOrdersBook(ctx, cd.clickHouseOrdersBook)
 						if err != nil {
 							if !errors.Is(err, ctx.Err()) {
 								logErrStack(err)

@@ -1,15 +1,18 @@
 version: "3"
 services:
-#  cryptogalaxy:
-#    build:
-#      context: ./
-#      dockerfile: ./Dockerfile
-#    container_name: cryptogalaxy
-#    restart: always
-#    volumes:
-#      - /cdnf/cryptologger.log:/cryptogalaxy/cryptologger.log
-#    depends_on:
-#      - db
+  cryptogalaxy:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    container_name: cryptogalaxy
+    restart: on-failure
+    volumes:
+      - /cdnf/cryptologger.log:/cryptogalaxy/cryptologger.log
+    depends_on:
+      - db
+    networks:
+      intranet:
+        ipv4_address: 172.23.0.3
   db:
     image: yandex/clickhouse-server
     restart: always
@@ -27,3 +30,13 @@ services:
       - "8123:8123"
       - "9000:9000"
       - "9004:9004"
+    networks:
+      intranet:
+        ipv4_address: 172.23.0.2
+
+networks:
+  intranet:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.23.0.0/24

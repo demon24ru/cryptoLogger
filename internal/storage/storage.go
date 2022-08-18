@@ -41,7 +41,7 @@ type OrdersBook struct {
 
 // Storage represents different storage options where the ticker and trade data can be stored.
 type Storage interface {
-	CommitTickers(context.Context, []Ticker, string) error
-	CommitTrades(context.Context, []Trade, string) error
-	CommitLevel2(context.Context, []Level2, string) error
+	CommitTickers(context.Context, []Ticker) error
+	CommitTrades(context.Context, []Trade) error
+	CommitLevel2(context.Context, []Level2) error
 }

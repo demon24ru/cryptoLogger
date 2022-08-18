@@ -284,7 +284,10 @@
             "user": "",
             "password": "",
             "URL": "tcp://db:9000",
-            "alt_hosts": [],
+            "alt_hosts": [
+                "172.23.0.2:9000",
+                "192.168.8.19:9000"
+            ],
             "schema": "default",
             "request_timeout_sec": 10,
             "compression": false,
