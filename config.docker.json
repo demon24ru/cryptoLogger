@@ -115,6 +115,43 @@
                     ]
                 },
                 {
+                    "id": "SOL-USDT",
+                    "info": [
+                        {
+                            "channel": "ticker",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "trade",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "level2",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "ordersbook",
+                            "connector": "rest",
+                            "rest_ping_interval_sec": 600,
+                            "storages": [
+                                "terminal"
+                            ]
+                        }
+                    ]
+                },
+                {
                     "id": "ETH3L-USDT",
                     "info": [
                         {
@@ -227,6 +264,80 @@
                 },
                 {
                     "id": "BTC3S-USDT",
+                    "info": [
+                        {
+                            "channel": "ticker",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "trade",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "level2",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "ordersbook",
+                            "connector": "rest",
+                            "rest_ping_interval_sec": 600,
+                            "storages": [
+                                "terminal"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "SOL3L-USDT",
+                    "info": [
+                        {
+                            "channel": "ticker",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "trade",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "level2",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "terminal"
+                            ]
+                        },
+                        {
+                            "channel": "ordersbook",
+                            "connector": "rest",
+                            "rest_ping_interval_sec": 600,
+                            "storages": [
+                                "terminal"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "SOL3S-USDT",
                     "info": [
                         {
                             "channel": "ticker",

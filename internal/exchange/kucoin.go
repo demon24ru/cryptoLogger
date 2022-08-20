@@ -734,82 +734,93 @@ func (k *kucoin) processREST(ctx context.Context, mktCommitName string, channel 
 		clickHouseOrdersBook: make([]storage.OrdersBook, 0, k.connCfg.ClickHouse.OrdersBookCommitBuf),
 	}
 
+	wrk := func() error {
+		switch channel {
+		case "ordersbook":
+			rsp, err := k.rest.KucoinService.AggregatedFullOrderBookV3(mktCommitName)
+			if err != nil {
+				logErrStack(err)
+				return err
+			}
+
+			orbk := kcn.FullOrderBookModel{}
+			if err := rsp.ReadData(&orbk); err != nil {
+				logErrStack(err)
+				return err
+			}
+
+			var bids string
+			bids, err = jsoniter.MarshalToString(orbk.Bids)
+			if err != nil {
+				logErrStack(err)
+				return err
+			}
+
+			var asks string
+			asks, err = jsoniter.MarshalToString(orbk.Asks)
+			if err != nil {
+				logErrStack(err)
+				return err
+			}
+
+			ordersbook := storage.OrdersBook{
+				MktCommitName: mktCommitName,
+				Sequence:      orbk.Sequence,
+				Bids:          bids,
+				Asks:          asks,
+				Timestamp:     time.UnixMilli(orbk.Time).UTC(),
+			}
+
+			key := cfgLookupKey{market: ordersbook.MktCommitName, channel: "ordersbook"}
+			val := k.cfgMap[key]
+			if val.terStr {
+				cd.terOrdersBookCount++
+				cd.terOrdersBooks = append(cd.terOrdersBooks, ordersbook)
+				if cd.terOrdersBookCount == k.connCfg.Terminal.OrdersBookCommitBuf {
+					err := k.ter.CommitOrdersBook(ctx, cd.terOrdersBooks)
+					if err != nil {
+						if !errors.Is(err, ctx.Err()) {
+							logErrStack(err)
+						}
+						return err
+					}
+					cd.terOrdersBookCount = 0
+					cd.terOrdersBooks = nil
+				}
+			}
+
+			if val.clickHouseStr {
+				cd.clickHouseOrdersBookCount++
+				cd.clickHouseOrdersBook = append(cd.clickHouseOrdersBook, ordersbook)
+				if cd.clickHouseOrdersBookCount == k.connCfg.ClickHouse.OrdersBookCommitBuf {
+					err := k.clickhouse.CommitOrdersBook(ctx, cd.clickHouseOrdersBook)
+					if err != nil {
+						if !errors.Is(err, ctx.Err()) {
+							logErrStack(err)
+						}
+						return err
+					}
+					cd.clickHouseOrdersBookCount = 0
+					cd.clickHouseOrdersBook = nil
+				}
+			}
+
+		}
+		return nil
+	}
+
+	if err := wrk(); err != nil {
+		return err
+	}
+
 	tick := time.NewTicker(time.Duration(interval) * time.Second)
 	defer tick.Stop()
 	for {
 		select {
 		case <-tick.C:
 
-			switch channel {
-			case "ordersbook":
-				rsp, err := k.rest.KucoinService.AggregatedFullOrderBookV3(mktCommitName)
-				if err != nil {
-					logErrStack(err)
-					return err
-				}
-
-				orbk := kcn.FullOrderBookModel{}
-				if err := rsp.ReadData(&orbk); err != nil {
-					logErrStack(err)
-					return err
-				}
-
-				var bids string
-				bids, err = jsoniter.MarshalToString(orbk.Bids)
-				if err != nil {
-					logErrStack(err)
-					return err
-				}
-
-				var asks string
-				asks, err = jsoniter.MarshalToString(orbk.Asks)
-				if err != nil {
-					logErrStack(err)
-					return err
-				}
-
-				ordersbook := storage.OrdersBook{
-					MktCommitName: mktCommitName,
-					Sequence:      orbk.Sequence,
-					Bids:          bids,
-					Asks:          asks,
-					Timestamp:     time.UnixMilli(orbk.Time).UTC(),
-				}
-
-				key := cfgLookupKey{market: ordersbook.MktCommitName, channel: "ordersbook"}
-				val := k.cfgMap[key]
-				if val.terStr {
-					cd.terOrdersBookCount++
-					cd.terOrdersBooks = append(cd.terOrdersBooks, ordersbook)
-					if cd.terOrdersBookCount == k.connCfg.Terminal.OrdersBookCommitBuf {
-						err := k.ter.CommitOrdersBook(ctx, cd.terOrdersBooks)
-						if err != nil {
-							if !errors.Is(err, ctx.Err()) {
-								logErrStack(err)
-							}
-							return err
-						}
-						cd.terOrdersBookCount = 0
-						cd.terOrdersBooks = nil
-					}
-				}
-
-				if val.clickHouseStr {
-					cd.clickHouseOrdersBookCount++
-					cd.clickHouseOrdersBook = append(cd.clickHouseOrdersBook, ordersbook)
-					if cd.clickHouseOrdersBookCount == k.connCfg.ClickHouse.OrdersBookCommitBuf {
-						err := k.clickhouse.CommitOrdersBook(ctx, cd.clickHouseOrdersBook)
-						if err != nil {
-							if !errors.Is(err, ctx.Err()) {
-								logErrStack(err)
-							}
-							return err
-						}
-						cd.clickHouseOrdersBookCount = 0
-						cd.clickHouseOrdersBook = nil
-					}
-				}
-
+			if err := wrk(); err != nil {
+				return err
 			}
 
 		// Return, if there is any error from another function or exchange.

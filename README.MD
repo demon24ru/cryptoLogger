@@ -428,9 +428,10 @@ SET output_format_json_named_tuples_as_objects = 1;
 ```
 
 ```sql
-CREATE TABLE ticker_ETH-USDT
+CREATE TABLE ticker
 (
-    `data` JSON,
+    `market` Enum8('BTC-USDT'=1, ...),
+    `data` JSON,   // or String if JSON not supported
     `timestamp` DateTime64(3, 'UTC')
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
@@ -438,9 +439,10 @@ ORDER BY (timestamp);
 ```
  
 ```sql
-CREATE TABLE trade_ETH-USDT
+CREATE TABLE trade
 (
-    `data` JSON,
+    `market` Enum8('BTC-USDT'=1, ...),
+    `data` JSON,   // or String if JSON not supported
     `timestamp` DateTime64(3, 'UTC')
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
@@ -448,9 +450,10 @@ ORDER BY (timestamp);
 ```
 
 ```sql
-CREATE TABLE level2_ETH-USDT
+CREATE TABLE level2
 (
-    `data` JSON,
+    `market` Enum8('BTC-USDT'=1, ...),
+    `data` JSON,   // or String if JSON not supported
     `timestamp` DateTime64(9, 'UTC')
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
@@ -458,11 +461,12 @@ ORDER BY (timestamp);
 ```
 
 ```sql
-CREATE TABLE ordersbook_ETH-USDT
+CREATE TABLE ordersbook
 (
+    `market` Enum8('BTC-USDT'=1, ...),
     `sequence` String,
-    `bids` JSON,
-    `asks` JSON,
+    `bids` JSON,   // or String if JSON not supported
+    `asks` JSON,   // or String if JSON not supported
     `timestamp` DateTime64(3, 'UTC')
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
