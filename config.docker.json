@@ -11,7 +11,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -19,7 +19,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -27,7 +27,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -35,7 +35,7 @@
                             "connector": "rest",
                             "rest_ping_interval_sec": 600,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         }
                     ]
@@ -48,7 +48,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -56,7 +56,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -64,7 +64,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -72,7 +72,7 @@
                             "connector": "rest",
                             "rest_ping_interval_sec": 600,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         }
                     ]
@@ -85,7 +85,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -93,7 +93,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -101,7 +101,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -109,7 +109,7 @@
                             "connector": "rest",
                             "rest_ping_interval_sec": 600,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         }
                     ]
@@ -122,7 +122,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -130,7 +130,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -138,7 +138,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -146,7 +146,7 @@
                             "connector": "rest",
                             "rest_ping_interval_sec": 600,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         }
                     ]
@@ -159,7 +159,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -167,7 +167,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -175,7 +175,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -183,7 +183,7 @@
                             "connector": "rest",
                             "rest_ping_interval_sec": 600,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         }
                     ]
@@ -196,7 +196,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -204,7 +204,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -212,7 +212,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -220,7 +220,7 @@
                             "connector": "rest",
                             "rest_ping_interval_sec": 600,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         }
                     ]
@@ -233,7 +233,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -241,7 +241,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -249,7 +249,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -257,7 +257,7 @@
                             "connector": "rest",
                             "rest_ping_interval_sec": 600,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         }
                     ]
@@ -270,7 +270,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -278,7 +278,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -286,7 +286,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -294,7 +294,7 @@
                             "connector": "rest",
                             "rest_ping_interval_sec": 600,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         }
                     ]
@@ -307,7 +307,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -315,7 +315,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -323,7 +323,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -331,7 +331,7 @@
                             "connector": "rest",
                             "rest_ping_interval_sec": 600,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         }
                     ]
@@ -344,7 +344,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -352,7 +352,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -360,7 +360,7 @@
                             "connector": "websocket",
                             "websocket_consider_interval_sec": 0,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         },
                         {
@@ -368,7 +368,7 @@
                             "connector": "rest",
                             "rest_ping_interval_sec": 600,
                             "storages": [
-                                "terminal"
+                                "clickhouse"
                             ]
                         }
                     ]
