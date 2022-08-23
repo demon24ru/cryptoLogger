@@ -152,6 +152,43 @@
                     ]
                 },
                 {
+                    "id": "BNB-USDT",
+                    "info": [
+                        {
+                            "channel": "ticker",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        },
+                        {
+                            "channel": "trade",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        },
+                        {
+                            "channel": "level2",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        },
+                        {
+                            "channel": "ordersbook",
+                            "connector": "rest",
+                            "rest_ping_interval_sec": 600,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        }
+                    ]
+                },
+                {
                     "id": "ETH3L-USDT",
                     "info": [
                         {
@@ -338,6 +375,80 @@
                 },
                 {
                     "id": "SOL3S-USDT",
+                    "info": [
+                        {
+                            "channel": "ticker",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        },
+                        {
+                            "channel": "trade",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        },
+                        {
+                            "channel": "level2",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        },
+                        {
+                            "channel": "ordersbook",
+                            "connector": "rest",
+                            "rest_ping_interval_sec": 600,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "BNB3L-USDT",
+                    "info": [
+                        {
+                            "channel": "ticker",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        },
+                        {
+                            "channel": "trade",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        },
+                        {
+                            "channel": "level2",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        },
+                        {
+                            "channel": "ordersbook",
+                            "connector": "rest",
+                            "rest_ping_interval_sec": 600,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "BNB3S-USDT",
                     "info": [
                         {
                             "channel": "ticker",
