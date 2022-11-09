@@ -98,6 +98,48 @@ services:
     networks:
       intranet:
         ipv4_address: 172.23.0.9
+  cryptogalaxy7:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    container_name: cryptogalaxy7
+    restart: always
+    volumes:
+      - /cdnf/cryptologger7.log:/cryptogalaxy/cryptologger.log
+      - ./config7.json:/cryptogalaxy/config.json
+    depends_on:
+      - db
+    networks:
+      intranet:
+        ipv4_address: 172.23.0.10
+  cryptogalaxy8:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    container_name: cryptogalaxy8
+    restart: always
+    volumes:
+      - /cdnf/cryptologger8.log:/cryptogalaxy/cryptologger.log
+      - ./config8.json:/cryptogalaxy/config.json
+    depends_on:
+      - db
+    networks:
+      intranet:
+        ipv4_address: 172.23.0.11
+  cryptogalaxy9:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    container_name: cryptogalaxy9
+    restart: always
+    volumes:
+      - /cdnf/cryptologger9.log:/cryptogalaxy/cryptologger.log
+      - ./config9.json:/cryptogalaxy/config.json
+    depends_on:
+      - db
+    networks:
+      intranet:
+        ipv4_address: 172.23.0.12
   db:
     image: yandex/clickhouse-server
     restart: always
