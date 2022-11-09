@@ -2,7 +2,6 @@ package connector
 
 import (
 	"errors"
-
 	"github.com/Kucoin/kucoin-go-sdk"
 	"github.com/milkywaybrain/cryptogalaxy/internal/config"
 )

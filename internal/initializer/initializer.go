@@ -138,98 +138,102 @@ func Start(mainCtx context.Context, cfg *config.Config) error {
 			appErrGroup.Go(func() error {
 				return exchange.StartKucoin(appCtx, markets, &retry, &cfg.Connection)
 			})
-		//case "bitstamp":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartBitstamp(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "bybit":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartBybit(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "probit":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartProbit(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "gemini":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartGemini(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "bitmart":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartBitmart(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "digifinex":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartDigifinex(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "ascendex":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartAscendex(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "kraken":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartKraken(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "binance-us":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartBinanceUS(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "okex":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartOKEx(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "ftx-us":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartFtxUS(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "hitbtc":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartHitBTC(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "aax":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartAAX(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "bitrue":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartBitrue(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "btse":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartBTSE(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "mexo":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartMexo(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "bequant":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartBequant(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "lbank":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartLBank(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "coinflex":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartCoinFlex(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "binance-tr":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartBinanceTR(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "cryptodot-com":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartCryptodotCom(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "fmfwio":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartFmfwio(appCtx, markets, &retry, &cfg.Connection)
-		//	})
-		//case "changelly-pro":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartChangellyPro(appCtx, markets, &retry, &cfg.Connection)
-		//	})
+		case "kucoinFutures":
+			appErrGroup.Go(func() error {
+				return exchange.StartKucoinFutures(appCtx, markets, &retry, &cfg.Connection)
+			})
+			//case "bitstamp":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartBitstamp(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "bybit":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartBybit(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "probit":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartProbit(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "gemini":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartGemini(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "bitmart":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartBitmart(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "digifinex":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartDigifinex(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "ascendex":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartAscendex(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "kraken":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartKraken(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "binance-us":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartBinanceUS(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "okex":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartOKEx(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "ftx-us":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartFtxUS(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "hitbtc":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartHitBTC(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "aax":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartAAX(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "bitrue":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartBitrue(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "btse":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartBTSE(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "mexo":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartMexo(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "bequant":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartBequant(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "lbank":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartLBank(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "coinflex":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartCoinFlex(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "binance-tr":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartBinanceTR(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "cryptodot-com":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartCryptodotCom(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "fmfwio":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartFmfwio(appCtx, markets, &retry, &cfg.Connection)
+			//	})
+			//case "changelly-pro":
+			//	appErrGroup.Go(func() error {
+			//		return exchange.StartChangellyPro(appCtx, markets, &retry, &cfg.Connection)
+			//	})
 		}
 	}
 

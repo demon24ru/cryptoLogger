@@ -32,8 +32,9 @@ const (
 	GateioRESTBaseURL = "https://api.gateio.ws/api/v4/"
 
 	// KucoinRESTBaseURL is the kucoin exchange base REST url.
-	KucoinRESTBaseURL = "https://api.kucoin.com/api/v1/"
-	KucoinRESTV3URL   = "https://api.kucoin.com/api/v3/"
+	KucoinRESTBaseURL        = "https://api.kucoin.com/api/v1/"
+	KucoinRESTV3URL          = "https://api.kucoin.com/api/v3/"
+	KucoinFuturesRESTBaseURL = "https://api-futures.kucoin.com/api/v1/"
 
 	// BitstampWebsocketURL is the bitstamp exchange websocket url.
 	BitstampWebsocketURL = "wss://ws.bitstamp.net/"
