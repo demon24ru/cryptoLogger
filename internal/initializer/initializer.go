@@ -118,10 +118,14 @@ func Start(mainCtx context.Context, cfg *config.Config) error {
 		//	appErrGroup.Go(func() error {
 		//		return exchange.StartCoinbasePro(appCtx, markets, &retry, &cfg.Connection)
 		//	})
-		//case "binance":
-		//	appErrGroup.Go(func() error {
-		//		return exchange.StartBinance(appCtx, markets, &retry, &cfg.Connection)
-		//	})
+		case "binance":
+			appErrGroup.Go(func() error {
+				return exchange.StartBinance(appCtx, markets, &retry, &cfg.Connection)
+			})
+		case "binanceFutures":
+			appErrGroup.Go(func() error {
+				return exchange.StartBinanceFutures(appCtx, markets, &retry, &cfg.Connection)
+			})
 		//case "bitfinex":
 		//	appErrGroup.Go(func() error {
 		//		return exchange.StartBitfinex(appCtx, markets, &retry, &cfg.Connection)

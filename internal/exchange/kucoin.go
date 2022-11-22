@@ -64,14 +64,6 @@ func StartKucoin(appCtx context.Context, markets []config.Market, retry *config.
 	}
 }
 
-type wsTickerData struct {
-	price       string
-	bestAsk     string
-	bestAskSize string
-	bestBid     string
-	bestBidSize string
-}
-
 type kucoin struct {
 	ws                     connector.Websocket
 	rest                   *connector.REST

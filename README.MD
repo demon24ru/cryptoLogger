@@ -5,11 +5,12 @@ Forked from [Cryptogalaxy](https://github.com/milkywaybrain/cryptogalaxy) is an 
 <p>Currently supported exchanges :<br></p>
 
 <div><img src="./docs/exchange/kucoin.png" title="Kucoin" height="24" width="24"/> Kucoin</div>
+<div><img src="./docs/exchange/binance.png" title="Binance" height="24" width="24"/> Binance</div>
  
 <p><br>Currently supported storages :<br></p>
 
-<div>1. <img src="./docs/storage/terminal.png" title="Terminal Output" height="24" width="24"/> Terminal Output</div>
-<div>2. <img src="./docs/storage/clickhouse.jpeg" title="ClickHouse" height="24" width="24"/> ClickHouse</div>
+<div><img src="./docs/storage/terminal.png" title="Terminal Output" height="24" width="24"/> Terminal Output</div>
+<div><img src="./docs/storage/clickhouse.jpeg" title="ClickHouse" height="24" width="24"/> ClickHouse</div>
  
 ---------------------------------------  
  * [Features](#features)

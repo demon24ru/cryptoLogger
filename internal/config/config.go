@@ -16,6 +16,11 @@ const (
 	// BinanceRESTBaseURL is the binance exchange base REST url.
 	BinanceRESTBaseURL = "https://api.binance.com/api/v3/"
 
+	// BinanceFuturesWebsocketURL is the binance exchange websocket url.
+	BinanceFuturesWebsocketURL = "wss://fstream.binance.com/ws"
+	// BinanceFuturesRESTBaseURL is the binance exchange base REST url.
+	BinanceFuturesRESTBaseURL = "https://fapi.binance.com/fapi/v1/"
+
 	// BitfinexWebsocketURL is the bitfinex exchange websocket url.
 	BitfinexWebsocketURL = "wss://api-pub.bitfinex.com/ws/2"
 	// BitfinexRESTBaseURL is the bitfinex exchange base REST url.
