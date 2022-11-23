@@ -480,6 +480,8 @@ func (b *binanceFutures) readWs(ctx context.Context) error {
 							BestBid:     st.bestBid,
 							BestBidSize: st.bestBidSize,
 						})
+					} else {
+						continue
 					}
 				case "trade":
 					wrt := wsRespTradeBinanceFutures{}
