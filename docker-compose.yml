@@ -196,6 +196,20 @@ services:
     networks:
       intranet:
         ipv4_address: 172.23.0.16
+  cryptogalaxy14:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    container_name: cryptogalaxy14
+    restart: always
+    volumes:
+      - /cdnf/cryptologger14.log:/cryptogalaxy/cryptologger.log
+      - ./config14.json:/cryptogalaxy/config.json
+    depends_on:
+      - db
+    networks:
+      intranet:
+        ipv4_address: 172.23.0.17
   db:
     image: yandex/clickhouse-server
     restart: always
