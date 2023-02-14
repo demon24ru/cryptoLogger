@@ -82,19 +82,11 @@ type wsRespBestPricesBinanceFutures struct {
 	BestAskSize string `json:"A"`
 }
 
-type storeBestPricesBinanceFutures struct {
+type storeTickerDataBinanceFutures struct {
 	bestBid     string
 	bestBidSize string
 	bestAsk     string
 	bestAskSize string
-}
-
-type wsRespTickerBinanceFutures struct {
-	TickerPrice string `json:"c"`
-	TickerTime  int64  `json:"E"`
-
-	Cdel int64  `json:"C"`
-	Edel string `json:"e"`
 }
 
 type wsRespTradeBinanceFutures struct {
@@ -300,6 +292,9 @@ func (b *binanceFutures) subWsChannel(market string, channel string, id int) err
 	if channel == "trade" {
 		channel = "aggTrade"
 	}
+	if channel == "ticker" {
+		channel = "bookTicker"
+	}
 	channel = strings.ToLower(market) + "@" + channel
 	sub := wsSubBinance{
 		Method: "SUBSCRIBE",
@@ -319,14 +314,6 @@ func (b *binanceFutures) subWsChannel(market string, channel string, id int) err
 			logErrStack(err)
 		}
 		return err
-	}
-
-	if channel == strings.ToLower(market)+"@ticker" {
-		err = b.subWsChannel(market, "bookTicker", id+100)
-		if err != nil {
-			logErrStack(err)
-			return err
-		}
 	}
 
 	return nil
@@ -362,8 +349,7 @@ func (b *binanceFutures) readWs(ctx context.Context) error {
 		clickHouseTrades:  make([]storage.Trade, 0, b.connCfg.ClickHouse.TradeCommitBuf),
 	}
 
-	storeTick := make(map[string]wsTickerData)
-	storeBestPrices := make(map[string]storeBestPricesBinanceFutures)
+	storeTick := make(map[string]storeTickerDataBinanceFutures)
 
 	for {
 		select {
@@ -410,25 +396,8 @@ func (b *binanceFutures) readWs(ctx context.Context) error {
 				return errors.New("binanceFutures websocket error")
 			}
 
-			if wr.Event == "bookTicker" {
-				wrbp := wsRespBestPricesBinanceFutures{}
-				err = jsoniter.Unmarshal(frame, &wrbp)
-				if err != nil {
-					log.Debug().Str("exchange", "binanceFutures").Str("func", "readWs").Msg(string(frame))
-					logErrStack(err)
-					return err
-				}
-				storeBestPrices[wr.Symbol] = storeBestPricesBinanceFutures{
-					bestAsk:     wrbp.BestAsk,
-					bestAskSize: wrbp.BestAskSize,
-					bestBid:     wrbp.BestBid,
-					bestBidSize: wrbp.BestBidSize,
-				}
-				continue
-			}
-
 			switch wr.Event {
-			case "24hrTicker":
+			case "bookTicker":
 				wr.Event = "ticker"
 			case "aggTrade":
 				wr.Event = "trade"
@@ -449,7 +418,7 @@ func (b *binanceFutures) readWs(ctx context.Context) error {
 
 				switch wr.Event {
 				case "ticker":
-					wrti := wsRespTickerBinanceFutures{}
+					wrti := wsRespBestPricesBinanceFutures{}
 					err = jsoniter.Unmarshal(frame, &wrti)
 					if err != nil {
 						log.Debug().Str("exchange", "binanceFutures").Str("func", "readWs").Msg(string(frame))
@@ -457,32 +426,25 @@ func (b *binanceFutures) readWs(ctx context.Context) error {
 						return err
 					}
 
-					st, oks := storeBestPrices[wr.Symbol]
-					if oks {
-						sTick, ok := storeTick[wr.mktCommitName]
-						if ok && sTick.price == wrti.TickerPrice && sTick.bestAsk == st.bestAsk && sTick.bestAskSize == st.bestAskSize && sTick.bestBid == st.bestBid && sTick.bestBidSize == st.bestBidSize {
-							continue
-						}
-
-						storeTick[wr.mktCommitName] = wsTickerData{
-							price:       wrti.TickerPrice,
-							bestAsk:     st.bestAsk,
-							bestAskSize: st.bestAskSize,
-							bestBid:     st.bestBid,
-							bestBidSize: st.bestBidSize,
-						}
-
-						wr.data, err = jsoniter.MarshalToString(storeBinanceTicker{
-							Price:       wrti.TickerPrice,
-							Time:        wrti.TickerTime,
-							BestAsk:     st.bestAsk,
-							BestAskSize: st.bestAskSize,
-							BestBid:     st.bestBid,
-							BestBidSize: st.bestBidSize,
-						})
-					} else {
+					sTick, ok := storeTick[wr.mktCommitName]
+					if ok && sTick.bestAsk == wrti.BestAsk && sTick.bestAskSize == wrti.BestAskSize && sTick.bestBid == wrti.BestBid && sTick.bestBidSize == wrti.BestBidSize {
 						continue
 					}
+
+					storeTick[wr.mktCommitName] = storeTickerDataBinanceFutures{
+						//price:       price,
+						bestAsk:     wrti.BestAsk,
+						bestAskSize: wrti.BestAskSize,
+						bestBid:     wrti.BestBid,
+						bestBidSize: wrti.BestBidSize,
+					}
+
+					wr.data, err = jsoniter.MarshalToString(storeBinanceTicker{
+						BestAsk:     wrti.BestAsk,
+						BestAskSize: wrti.BestAskSize,
+						BestBid:     wrti.BestBid,
+						BestBidSize: wrti.BestBidSize,
+					})
 				case "trade":
 					wrt := wsRespTradeBinanceFutures{}
 					err = jsoniter.Unmarshal(frame, &wrt)

@@ -63,8 +63,7 @@ func StartKucoinFutures(appCtx context.Context, markets []config.Market, retry *
 	}
 }
 
-type wsTickerDataFut struct {
-	price       float64
+type storeTickerDataKucoinFuters struct {
 	bestAsk     string
 	bestAskSize float64
 	bestBid     string
@@ -406,7 +405,7 @@ func (k *kucoinFutures) pingWs(ctx context.Context) error {
 func (k *kucoinFutures) subWsChannel(market string, channel string, id int) error {
 	switch channel {
 	case "ticker":
-		channel = "/contractMarket/ticker:" + market
+		channel = "/contractMarket/tickerV2:" + market
 	case "trade":
 		channel = "/contractMarket/execution:" + market
 	case "level2":
@@ -454,7 +453,7 @@ func (k *kucoinFutures) readWs(ctx context.Context) error {
 		clickHouseLevel2:  make([]storage.Level2, 0, k.connCfg.ClickHouse.Level2CommitBuf),
 	}
 
-	storeTick := make(map[string]wsTickerDataFut)
+	storeTick := make(map[string]storeTickerDataKucoinFuters)
 
 	for {
 		select {
@@ -501,7 +500,7 @@ func (k *kucoinFutures) readWs(ctx context.Context) error {
 				}
 
 				switch s[0] {
-				case "/contractMarket/ticker":
+				case "/contractMarket/tickerV2":
 					wr.Topic = "ticker"
 				case "/contractMarket/execution":
 					wr.Topic = "trade"
@@ -526,19 +525,19 @@ func (k *kucoinFutures) readWs(ctx context.Context) error {
 
 					tick := wr.Data.(map[string]interface{})
 
-					price := tick["price"].(float64)
+					//price := tick["price"].(float64)
 					bestAsk := tick["bestAskPrice"].(string)
 					bestAskSize := tick["bestAskSize"].(float64)
 					bestBid := tick["bestBidPrice"].(string)
 					bestBidSize := tick["bestBidSize"].(float64)
 
 					sTick, ok := storeTick[wr.mktCommitName]
-					if ok && sTick.price == price && sTick.bestAsk == bestAsk && sTick.bestAskSize == bestAskSize && sTick.bestBid == bestBid && sTick.bestBidSize == bestBidSize {
+					if ok && sTick.bestAsk == bestAsk && sTick.bestAskSize == bestAskSize && sTick.bestBid == bestBid && sTick.bestBidSize == bestBidSize {
 						continue
 					}
 
-					storeTick[wr.mktCommitName] = wsTickerDataFut{
-						price:       price,
+					storeTick[wr.mktCommitName] = storeTickerDataKucoinFuters{
+						//price:       price,
 						bestAsk:     bestAsk,
 						bestAskSize: bestAskSize,
 						bestBid:     bestBid,
