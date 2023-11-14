@@ -194,6 +194,15 @@ Example configuration file can be found at [./examples/config.json](./examples/c
                         },
                         {
                             "channel": "ordersbook",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                              "terminal",
+                              "clickhouse"
+                            ]
+                        },
+                        {
+                            "channel": "ordersbook",
                             "connector": "rest",
                             "rest_ping_interval_sec": 60,
                             "storages": [
@@ -432,47 +441,51 @@ SET output_format_json_named_tuples_as_objects = 1;
 ```sql
 CREATE TABLE ticker
 (
-    `market` Enum8('BTC-USDT'=1, ...),
+    `exchange` Enum8('binance'=1,'kucoin'=2,'bybit'=3),
+    `market` Enum16('BTC-USDT'=1, ...),
     `data` JSON,   // or String if JSON not supported
     `timestamp` DateTime64(3, 'UTC')
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
-ORDER BY (timestamp);
+ORDER BY (exchange, market, timestamp);
 ```
  
 ```sql
 CREATE TABLE trade
 (
-    `market` Enum8('BTC-USDT'=1, ...),
+    `exchange` Enum8('binance'=1,'kucoin'=2,'bybit'=3),
+    `market` Enum16('BTC-USDT'=1, ...),
     `data` JSON,   // or String if JSON not supported
     `timestamp` DateTime64(3, 'UTC')
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
-ORDER BY (timestamp);
+ORDER BY (exchange, market, timestamp);
 ```
 
 ```sql
 CREATE TABLE level2
 (
-    `market` Enum8('BTC-USDT'=1, ...),
+    `exchange` Enum8('binance'=1,'kucoin'=2,'bybit'=3),
+    `market` Enum16('BTC-USDT'=1, ...),
     `data` JSON,   // or String if JSON not supported
     `timestamp` DateTime64(9, 'UTC')
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
-ORDER BY (timestamp);
+ORDER BY (exchange, market, timestamp);
 ```
 
 ```sql
 CREATE TABLE ordersbook
 (
-    `market` Enum8('BTC-USDT'=1, ...),
+    `exchange` Enum8('binance'=1,'kucoin'=2,'bybit'=3),
+    `market` Enum16('BTC-USDT'=1, ...),
     `sequence` String,
     `bids` JSON,   // or String if JSON not supported
     `asks` JSON,   // or String if JSON not supported
     `timestamp` DateTime64(3, 'UTC')
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
-ORDER BY (timestamp);
+ORDER BY (exchange, market, timestamp);
 ```
 *Note :* Above table creation schema is a basic simple one. ClickHouse provides a lot of important configurations via create statement. You can choose a different table and database engine, can do data partition having ‘hot’ and ‘cold’ split, schedule old data deletion, configure sparse indexing structure with data replication etc and all through the simple create schema statements. So please go through the ClickHouse official document and customize the above script specific to your needs. If you want you can also change Float64 to Decimal column type to avoid floating arithmetic error in some use cases (of course overflow checks lead to operations slowdown, but then there is an option to turn it off also!). Only thing to remember is, you should not change the ticker and trade table column names. 
 
@@ -685,7 +698,7 @@ curl -L https://github.com/docker/compose/releases/download/v2.4.1/docker-compos
 chmod +x /usr/local/bin/docker-compose
 ```
 
-## Запуска проекта в Docker контейнере
+## Start Docker compose
 
 ```shell
 # Запуск
@@ -711,7 +724,7 @@ docker run -d --name clickhouse_1 --ulimit nofile=262144:262144 -v /cdnf/db/log:
 docker run -it --rm --link clickhouse_1:clickhouse-server yandex/clickhouse-client --host clickhouse-server
 ```
 
-Вставить поочередно схемы таблиц из scripts/clickhouse_schema.sql
+Insert tables from scripts/clickhouse_schema.sql
 
 ```shell
 docker stop clickhouse_1
