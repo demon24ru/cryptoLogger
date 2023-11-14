@@ -50,12 +50,24 @@ type commitData struct {
 	clickHouseOrdersBook      []storage.OrdersBook
 }
 
-type wsTickerData struct {
-	price       string
+type storeTickerData struct {
 	bestAsk     string
 	bestAskSize string
 	bestBid     string
 	bestBidSize string
+}
+
+type commitTicker struct {
+	BestAsk     string `json:"ba"`
+	BestAskSize string `json:"bas"`
+	BestBid     string `json:"bb"`
+	BestBidSize string `json:"bbs"`
+}
+
+type commitTrade struct {
+	Side  string `json:"t"`
+	Size  string `json:"s"`
+	Price string `json:"p"`
 }
 
 // WsTickersToStorage batch inserts input ticker data from websocket to specified storage.
@@ -100,6 +112,24 @@ func WsLevel2ToStorage(ctx context.Context, str storage.Storage, level2 <-chan [
 		select {
 		case data := <-level2:
 			err := str.CommitLevel2(ctx, data)
+			if err != nil {
+				if !errors.Is(err, ctx.Err()) {
+					logErrStack(err)
+				}
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+// WsOrdersBookToStorage batch inserts input orders book data from websocket to specified storage.
+func WsOrdersBookToStorage(ctx context.Context, str storage.Storage, ordersBook <-chan []storage.OrdersBook) error {
+	for {
+		select {
+		case data := <-ordersBook:
+			err := str.CommitOrdersBook(ctx, data)
 			if err != nil {
 				if !errors.Is(err, ctx.Err()) {
 					logErrStack(err)

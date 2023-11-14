@@ -612,6 +612,14 @@
                         },
                         {
                             "channel": "ordersbook",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        },
+                        {
+                            "channel": "ordersbook",
                             "connector": "rest",
                             "rest_ping_interval_sec": 60,
                             "storages": [

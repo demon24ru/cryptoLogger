@@ -150,10 +150,14 @@ func Start(mainCtx context.Context, cfg *config.Config) error {
 			//	appErrGroup.Go(func() error {
 			//		return exchange.StartBitstamp(appCtx, markets, &retry, &cfg.Connection)
 			//	})
-			//case "bybit":
-			//	appErrGroup.Go(func() error {
-			//		return exchange.StartBybit(appCtx, markets, &retry, &cfg.Connection)
-			//	})
+		case "bybit":
+			appErrGroup.Go(func() error {
+				return exchange.StartByBit(appCtx, markets, &retry, &cfg.Connection)
+			})
+		case "bybitFutures":
+			appErrGroup.Go(func() error {
+				return exchange.StartByBitFutures(appCtx, markets, &retry, &cfg.Connection)
+			})
 			//case "probit":
 			//	appErrGroup.Go(func() error {
 			//		return exchange.StartProbit(appCtx, markets, &retry, &cfg.Connection)

@@ -37,7 +37,7 @@ func GetTerminal() *Terminal {
 func (t *Terminal) CommitTickers(_ context.Context, data []Ticker) error {
 	for i := range data {
 		ticker := data[i]
-		fmt.Fprintf(t.out, "%-15s%-15s%-15s%20s\n\n", "Ticker", ticker.MktCommitName, ticker.Data, ticker.Timestamp.Local().Format(TerminalTimestamp))
+		fmt.Fprintf(t.out, "%-15s%-15s%-15s%-15s%20s\n\n", "Ticker", ticker.ExchangeName, ticker.MktCommitName, ticker.Data, ticker.Timestamp.Local().Format(TerminalTimestamp))
 	}
 	return nil
 }
@@ -46,7 +46,7 @@ func (t *Terminal) CommitTickers(_ context.Context, data []Ticker) error {
 func (t *Terminal) CommitTrades(_ context.Context, data []Trade) error {
 	for i := range data {
 		trade := data[i]
-		fmt.Fprintf(t.out, "%-15s%-15s%-15s%20s\n\n", "Trade", trade.MktCommitName, trade.Data, trade.Timestamp.Local().Format(TerminalTimestamp))
+		fmt.Fprintf(t.out, "%-15s%-15s%-15s%-15s%20s\n\n", "Trade", trade.ExchangeName, trade.MktCommitName, trade.Data, trade.Timestamp.Local().Format(TerminalTimestamp))
 	}
 	return nil
 }
@@ -54,7 +54,7 @@ func (t *Terminal) CommitTrades(_ context.Context, data []Trade) error {
 func (t *Terminal) CommitLevel2(_ context.Context, data []Level2) error {
 	for i := range data {
 		level2 := data[i]
-		fmt.Fprintf(t.out, "%-15s%-15s%-15s%20s\n\n", "Level2", level2.MktCommitName, level2.Data, level2.Timestamp.Local().Format(TerminalTimestampMicroSec))
+		fmt.Fprintf(t.out, "%-15s%-15s%-15s%-15s%20s\n\n", "Level2", level2.ExchangeName, level2.MktCommitName, level2.Data, level2.Timestamp.Local().Format(TerminalTimestampMicroSec))
 	}
 	return nil
 }
@@ -62,7 +62,7 @@ func (t *Terminal) CommitLevel2(_ context.Context, data []Level2) error {
 func (t *Terminal) CommitOrdersBook(_ context.Context, data []OrdersBook) error {
 	for i := range data {
 		ordersBook := data[i]
-		fmt.Fprintf(t.out, "%-15s%-15s%-15s%-15s%-15s%20s\n\n", "OrdersBook", ordersBook.MktCommitName, ordersBook.Sequence, ordersBook.Bids, ordersBook.Asks, ordersBook.Timestamp.Local().Format(TerminalTimestamp))
+		fmt.Fprintf(t.out, "%-15s%-15s%-15s%-15s%-15s%-15s%20s\n\n", "OrdersBook", ordersBook.ExchangeName, ordersBook.MktCommitName, ordersBook.Sequence, ordersBook.Bids, ordersBook.Asks, ordersBook.Timestamp.Local().Format(TerminalTimestampMicroSec))
 	}
 	return nil
 }

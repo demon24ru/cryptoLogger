@@ -206,7 +206,7 @@ func main() {
 	w.Flush()
 	fmt.Println("got market info from Bitstamp")
 
-	// Bybit exchange.
+	// Bybit exchange. outdated!!!!
 	resp, err = http.Get(config.BybitRESTBaseURL + "v2/public/symbols")
 	if err != nil {
 		log.Error().Err(err).Str("exchange", "bybit").Msg("exchange request for markets")

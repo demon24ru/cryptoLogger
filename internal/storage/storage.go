@@ -8,6 +8,7 @@ import (
 // Ticker represents final form of market ticker info received from exchange
 // ready to store.
 type Ticker struct {
+	ExchangeName  string
 	MktCommitName string
 	Timestamp     time.Time
 	Data          string
@@ -16,6 +17,7 @@ type Ticker struct {
 // Trade represents final form of market trade info received from exchange
 // ready to store.
 type Trade struct {
+	ExchangeName  string
 	MktCommitName string
 	Timestamp     time.Time
 	Data          string
@@ -24,6 +26,7 @@ type Trade struct {
 // Level2 market Order book represents from exchange
 // ready to store.
 type Level2 struct {
+	ExchangeName  string
 	MktCommitName string
 	Timestamp     time.Time
 	Data          string
@@ -32,6 +35,7 @@ type Level2 struct {
 // OrdersBook market Order book represents from exchange
 // ready to store.
 type OrdersBook struct {
+	ExchangeName  string
 	MktCommitName string
 	Sequence      string
 	Timestamp     time.Time
@@ -44,4 +48,5 @@ type Storage interface {
 	CommitTickers(context.Context, []Ticker) error
 	CommitTrades(context.Context, []Trade) error
 	CommitLevel2(context.Context, []Level2) error
+	CommitOrdersBook(context.Context, []OrdersBook) error
 }

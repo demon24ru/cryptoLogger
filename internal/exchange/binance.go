@@ -62,17 +62,19 @@ func StartBinance(appCtx context.Context, markets []config.Market, retry *config
 }
 
 type binance struct {
-	ws                  connector.Websocket
-	rest                *connector.REST
-	connCfg             *config.Connection
-	cfgMap              map[cfgLookupKey]cfgLookupVal
-	channelIds          map[int][2]string
-	ter                 *storage.Terminal
-	clickhouse          *storage.ClickHouse
-	wsTerTickers        chan []storage.Ticker
-	wsTerTrades         chan []storage.Trade
-	wsClickHouseTickers chan []storage.Ticker
-	wsClickHouseTrades  chan []storage.Trade
+	ws                      connector.Websocket
+	rest                    *connector.REST
+	connCfg                 *config.Connection
+	cfgMap                  map[cfgLookupKey]cfgLookupVal
+	channelIds              map[int][2]string
+	ter                     *storage.Terminal
+	clickhouse              *storage.ClickHouse
+	wsTerTickers            chan []storage.Ticker
+	wsTerTrades             chan []storage.Trade
+	wsTerOrdersBooks        chan []storage.OrdersBook
+	wsClickHouseTickers     chan []storage.Ticker
+	wsClickHouseTrades      chan []storage.Trade
+	wsClickHouseOrdersBooks chan []storage.OrdersBook
 }
 
 type wsSubBinance struct {
@@ -89,6 +91,7 @@ type wsRespBinance struct {
 	ID            int    `json:"id"`
 	mktCommitName string
 	data          string
+	dataAsk       string
 
 	// This field value is not used but still need to present
 	// because otherwise json decoder does case-insensitive match with "m" and "M".
@@ -98,20 +101,14 @@ type wsRespBinance struct {
 }
 
 type wsRespTickerBinance struct {
-	TickerPrice string `json:"c"`
-	TickerTime  int64  `json:"E"`
 	BestBid     string `json:"b"`
 	BestBidSize string `json:"B"`
 	BestAsk     string `json:"a"`
 	BestAskSize string `json:"A"`
-
-	Cdel int64  `json:"C"`
-	Edel string `json:"e"`
 }
 
 type wsRespTradeBinance struct {
 	Symbol     string `json:"s"`
-	TradeID    uint64 `json:"t"`
 	Maker      bool   `json:"m"`
 	Qty        string `json:"q"`
 	TradePrice string `json:"p"`
@@ -120,32 +117,18 @@ type wsRespTradeBinance struct {
 	Mdel bool `json:"M"`
 }
 
-type storeBinanceTicker struct {
-	Price       string `json:"price"`
-	Size        string `json:"size"`
-	Time        int64  `json:"time"`
-	BestAsk     string `json:"bestAsk"`
-	BestAskSize string `json:"bestAskSize"`
-	BestBid     string `json:"bestBid"`
-	BestBidSize string `json:"bestBidSize"`
+type wsRespLevelBookBinance struct {
+	Bids [][]string `json:"b"`
+	Asks [][]string `json:"a"`
 }
 
-type storeBinanceTrade struct {
-	Symbol  string `json:"symbol"`
-	Time    int64  `json:"time"`
-	TradeId uint64 `json:"tradeId"`
-	Side    string `json:"side"`
-	Size    string `json:"size"`
-	Price   string `json:"price"`
-}
-
-type restRespBinance struct {
-	TradeID uint64 `json:"id"`
-	Maker   bool   `json:"isBuyerMaker"`
-	Qty     string `json:"qty"`
-	Price   string `json:"price"`
-	Time    int64  `json:"time"`
-}
+//type restRespBinance struct {
+//	TradeID uint64 `json:"id"`
+//	Maker   bool   `json:"isBuyerMaker"`
+//	Qty     string `json:"qty"`
+//	Price   string `json:"price"`
+//	Time    int64  `json:"time"`
+//}
 
 func newBinance(appCtx context.Context, markets []config.Market, connCfg *config.Connection) error {
 
@@ -191,6 +174,9 @@ func newBinance(appCtx context.Context, markets []config.Market, connCfg *config
 						binanceErrGroup.Go(func() error {
 							return WsTradesToStorage(ctx, b.ter, b.wsTerTrades)
 						})
+						binanceErrGroup.Go(func() error {
+							return WsOrdersBookToStorage(ctx, b.ter, b.wsTerOrdersBooks)
+						})
 					}
 
 					if b.clickhouse != nil {
@@ -199,6 +185,9 @@ func newBinance(appCtx context.Context, markets []config.Market, connCfg *config
 						})
 						binanceErrGroup.Go(func() error {
 							return WsTradesToStorage(ctx, b.clickhouse, b.wsClickHouseTrades)
+						})
+						binanceErrGroup.Go(func() error {
+							return WsOrdersBookToStorage(ctx, b.clickhouse, b.wsClickHouseOrdersBooks)
 						})
 					}
 
@@ -281,6 +270,7 @@ func (b *binance) cfgLookup(markets []config.Market) error {
 						b.ter = storage.GetTerminal()
 						b.wsTerTickers = make(chan []storage.Ticker, 1)
 						b.wsTerTrades = make(chan []storage.Trade, 1)
+						b.wsTerOrdersBooks = make(chan []storage.OrdersBook, 1)
 					}
 				case "clickhouse":
 					val.clickHouseStr = true
@@ -288,6 +278,7 @@ func (b *binance) cfgLookup(markets []config.Market) error {
 						b.clickhouse = storage.GetClickHouse()
 						b.wsClickHouseTickers = make(chan []storage.Ticker, 1)
 						b.wsClickHouseTrades = make(chan []storage.Trade, 1)
+						b.wsClickHouseOrdersBooks = make(chan []storage.OrdersBook, 1)
 					}
 				}
 			}
@@ -330,6 +321,15 @@ func (b *binance) closeWsConnOnError(ctx context.Context) error {
 
 // subWsChannel sends channel subscription requests to the websocket server.
 func (b *binance) subWsChannel(market string, channel string, id int) error {
+	if channel == "trade" {
+		channel = "aggTrade"
+	}
+	if channel == "ticker" {
+		channel = "bookTicker"
+	}
+	if channel == "ordersbook" {
+		channel = "depth@100ms"
+	}
 	channel = strings.ToLower(market) + "@" + channel
 	sub := wsSubBinance{
 		Method: "SUBSCRIBE",
@@ -377,13 +377,15 @@ func (b *binance) readWs(ctx context.Context) error {
 	}
 
 	cd := commitData{
-		terTickers:        make([]storage.Ticker, 0, b.connCfg.Terminal.TickerCommitBuf),
-		terTrades:         make([]storage.Trade, 0, b.connCfg.Terminal.TradeCommitBuf),
-		clickHouseTickers: make([]storage.Ticker, 0, b.connCfg.ClickHouse.TickerCommitBuf),
-		clickHouseTrades:  make([]storage.Trade, 0, b.connCfg.ClickHouse.TradeCommitBuf),
+		terTickers:           make([]storage.Ticker, 0, b.connCfg.Terminal.TickerCommitBuf),
+		terTrades:            make([]storage.Trade, 0, b.connCfg.Terminal.TradeCommitBuf),
+		terOrdersBooks:       make([]storage.OrdersBook, 0, b.connCfg.Terminal.OrdersBookCommitBuf),
+		clickHouseTickers:    make([]storage.Ticker, 0, b.connCfg.ClickHouse.TickerCommitBuf),
+		clickHouseTrades:     make([]storage.Trade, 0, b.connCfg.ClickHouse.TradeCommitBuf),
+		clickHouseOrdersBook: make([]storage.OrdersBook, 0, b.connCfg.ClickHouse.OrdersBookCommitBuf),
 	}
 
-	storeTick := make(map[string]wsTickerData)
+	storeTick := make(map[string]storeTickerData)
 
 	for {
 		select {
@@ -430,12 +432,28 @@ func (b *binance) readWs(ctx context.Context) error {
 				return errors.New("binance websocket error")
 			}
 
-			if wr.Event == "24hrTicker" {
-				wr.Event = "ticker"
+			switch wr.Event {
+			case "aggTrade":
+				wr.Event = "trade"
+			case "depthUpdate":
+				wr.Event = "ordersbook"
+			}
+
+			wrti := wsRespTickerBinance{}
+			if wr.Event == "" {
+				err = jsoniter.Unmarshal(frame, &wrti)
+				if err != nil {
+					log.Debug().Str("exchange", "binance").Str("func", "readWs").Msg(string(frame))
+					logErrStack(err)
+					return err
+				}
+				if wrti.BestBid != "" && wrti.BestBidSize != "" && wrti.BestAsk != "" && wrti.BestAskSize != "" {
+					wr.Event = "ticker"
+				}
 			}
 
 			// Consider frame only in configured interval, otherwise ignore it.
-			if wr.Event == "ticker" || wr.Event == "trade" {
+			if wr.Event == "ticker" || wr.Event == "trade" || wr.Event == "ordersbook" {
 
 				key := cfgLookupKey{market: wr.Symbol, channel: wr.Event}
 				val := cfgLookup[key]
@@ -449,30 +467,27 @@ func (b *binance) readWs(ctx context.Context) error {
 
 				switch wr.Event {
 				case "ticker":
-					wrti := wsRespTickerBinance{}
-					err = jsoniter.Unmarshal(frame, &wrti)
-					if err != nil {
-						log.Debug().Str("exchange", "binance").Str("func", "readWs").Msg(string(frame))
-						logErrStack(err)
-						return err
-					}
+					//wrti := wsRespTickerBinance{}
+					//err = jsoniter.Unmarshal(frame, &wrti)
+					//if err != nil {
+					//	log.Debug().Str("exchange", "binance").Str("func", "readWs").Msg(string(frame))
+					//	logErrStack(err)
+					//	return err
+					//}
 
 					sTick, ok := storeTick[wr.mktCommitName]
-					if ok && sTick.price == wrti.TickerPrice && sTick.bestAsk == wrti.BestAsk && sTick.bestAskSize == wrti.BestAskSize && sTick.bestBid == wrti.BestBid && sTick.bestBidSize == wrti.BestBidSize {
+					if ok && sTick.bestAsk == wrti.BestAsk && sTick.bestAskSize == wrti.BestAskSize && sTick.bestBid == wrti.BestBid && sTick.bestBidSize == wrti.BestBidSize {
 						continue
 					}
 
-					storeTick[wr.mktCommitName] = wsTickerData{
-						price:       wrti.TickerPrice,
+					storeTick[wr.mktCommitName] = storeTickerData{
 						bestAsk:     wrti.BestAsk,
 						bestAskSize: wrti.BestAskSize,
 						bestBid:     wrti.BestBid,
 						bestBidSize: wrti.BestBidSize,
 					}
 
-					wr.data, err = jsoniter.MarshalToString(storeBinanceTicker{
-						Price:       wrti.TickerPrice,
-						Time:        wrti.TickerTime,
+					wr.data, err = jsoniter.MarshalToString(commitTicker{
 						BestAsk:     wrti.BestAsk,
 						BestAskSize: wrti.BestAskSize,
 						BestBid:     wrti.BestBid,
@@ -494,14 +509,29 @@ func (b *binance) readWs(ctx context.Context) error {
 					if wrt.Maker {
 						side = "sell"
 					}
-					wr.data, err = jsoniter.MarshalToString(storeBinanceTrade{
-						Symbol:  wrt.Symbol,
-						Time:    wrt.TradeTime,
-						TradeId: wrt.TradeID,
-						Side:    side,
-						Size:    wrt.Qty,
-						Price:   wrt.TradePrice,
+					wr.data, err = jsoniter.MarshalToString(commitTrade{
+						Side:  side,
+						Size:  wrt.Qty,
+						Price: wrt.TradePrice,
 					})
+					if err != nil {
+						logErrStack(err)
+						return err
+					}
+				case "ordersbook":
+					wrt := wsRespLevelBookBinance{}
+					err = jsoniter.Unmarshal(frame, &wrt)
+					if err != nil {
+						log.Debug().Str("exchange", "binanceFutures").Str("func", "readWs").Msg(string(frame))
+						logErrStack(err)
+						return err
+					}
+					wr.data, err = jsoniter.MarshalToString(wrt.Bids)
+					if err != nil {
+						logErrStack(err)
+						return err
+					}
+					wr.dataAsk, err = jsoniter.MarshalToString(wrt.Asks)
 					if err != nil {
 						logErrStack(err)
 						return err
@@ -529,11 +559,12 @@ func (b *binance) processWs(ctx context.Context, wr *wsRespBinance, cd *commitDa
 	switch wr.Event {
 	case "ticker":
 		ticker := storage.Ticker{}
+		ticker.ExchangeName = "binance"
 		ticker.MktCommitName = wr.mktCommitName
 		ticker.Data = wr.data
 		ticker.Timestamp = time.Now().UTC()
 
-		key := cfgLookupKey{market: ticker.MktCommitName, channel: "ticker"}
+		key := cfgLookupKey{market: wr.mktCommitName, channel: "ticker"}
 		val := b.cfgMap[key]
 		if val.terStr {
 			cd.terTickersCount++
@@ -563,11 +594,12 @@ func (b *binance) processWs(ctx context.Context, wr *wsRespBinance, cd *commitDa
 		}
 	case "trade":
 		trade := storage.Trade{}
+		trade.ExchangeName = "binance"
 		trade.MktCommitName = wr.mktCommitName
 		trade.Data = wr.data
 		trade.Timestamp = time.Now().UTC()
 
-		key := cfgLookupKey{market: trade.MktCommitName, channel: "trade"}
+		key := cfgLookupKey{market: wr.mktCommitName, channel: "trade"}
 		val := b.cfgMap[key]
 		if val.terStr {
 			cd.terTradesCount++
@@ -593,6 +625,43 @@ func (b *binance) processWs(ctx context.Context, wr *wsRespBinance, cd *commitDa
 				}
 				cd.clickHouseTradesCount = 0
 				cd.clickHouseTrades = nil
+			}
+		}
+	case "ordersbook":
+		ordersbook := storage.OrdersBook{}
+		ordersbook.ExchangeName = "binance"
+		ordersbook.MktCommitName = wr.mktCommitName
+		ordersbook.Sequence = ""
+		ordersbook.Bids = wr.data
+		ordersbook.Asks = wr.dataAsk
+		ordersbook.Timestamp = time.Now().UTC()
+
+		key := cfgLookupKey{market: wr.mktCommitName, channel: "ordersbook"}
+		val := b.cfgMap[key]
+		if val.terStr {
+			cd.terOrdersBookCount++
+			cd.terOrdersBooks = append(cd.terOrdersBooks, ordersbook)
+			if cd.terOrdersBookCount == b.connCfg.Terminal.OrdersBookCommitBuf {
+				select {
+				case b.wsTerOrdersBooks <- cd.terOrdersBooks:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+				cd.terOrdersBookCount = 0
+				cd.terOrdersBooks = nil
+			}
+		}
+		if val.clickHouseStr {
+			cd.clickHouseOrdersBookCount++
+			cd.clickHouseOrdersBook = append(cd.clickHouseOrdersBook, ordersbook)
+			if cd.clickHouseOrdersBookCount == b.connCfg.ClickHouse.OrdersBookCommitBuf {
+				select {
+				case b.wsClickHouseOrdersBooks <- cd.clickHouseOrdersBook:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+				cd.clickHouseOrdersBookCount = 0
+				cd.clickHouseOrdersBook = nil
 			}
 		}
 	}

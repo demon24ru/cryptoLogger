@@ -47,7 +47,7 @@ const (
 	BitstampRESTBaseURL = "https://www.bitstamp.net/api/v2/"
 
 	// BybitWebsocketURL is the bybit exchange websocket url.
-	BybitWebsocketURL = "wss://stream.bybit.com/realtime_public"
+	BybitWebsocketURL = "wss://stream.bybit.com/v5/public"
 	// BybitRESTBaseURL is the bybit exchange base REST url.
 	BybitRESTBaseURL = "https://api.bybit.com/"
 

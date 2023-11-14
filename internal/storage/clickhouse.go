@@ -77,7 +77,7 @@ func (c *ClickHouse) CommitTickers(appCtx context.Context, data []Ticker) error 
 	if err != nil {
 		return err
 	}
-	stmt, err := tx.Prepare("INSERT INTO ticker (market, data, timestamp) VALUES (?, ?, ?)")
+	stmt, err := tx.Prepare("INSERT INTO ticker (exchange, market, data, timestamp) VALUES (?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func (c *ClickHouse) CommitTrades(appCtx context.Context, data []Trade) error {
 	if err != nil {
 		return err
 	}
-	stmt, err := tx.Prepare("INSERT INTO trade (market, data, timestamp) VALUES (?, ?, ?)")
+	stmt, err := tx.Prepare("INSERT INTO trade (exchange, market, data, timestamp) VALUES (?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func (c *ClickHouse) CommitLevel2(appCtx context.Context, data []Level2) error {
 	if err != nil {
 		return err
 	}
-	stmt, err := tx.Prepare("INSERT INTO level2 (market, data, timestamp) VALUES (?, ?, ?)")
+	stmt, err := tx.Prepare("INSERT INTO level2 (exchange, market, data, timestamp) VALUES (?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -152,7 +152,7 @@ func (c *ClickHouse) CommitOrdersBook(appCtx context.Context, data []OrdersBook)
 	if err != nil {
 		return err
 	}
-	stmt, err := tx.Prepare("INSERT INTO ordersbook (market, sequence, bids, asks, timestamp) VALUES (?, ?, ?, ?, ?)")
+	stmt, err := tx.Prepare("INSERT INTO ordersbook (exchange, market, sequence, bids, asks, timestamp) VALUES (?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}

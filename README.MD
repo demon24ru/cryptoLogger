@@ -6,6 +6,7 @@ Forked from [Cryptogalaxy](https://github.com/milkywaybrain/cryptogalaxy) is an 
 
 <div><img src="./docs/exchange/kucoin.png" title="Kucoin" height="24" width="24"/> Kucoin</div>
 <div><img src="./docs/exchange/binance.png" title="Binance" height="24" width="24"/> Binance</div>
+<div><img src="./docs/exchange/bybit.png" title="ByBit" height="24" width="24"/> ByBit</div>
  
 <p><br>Currently supported storages :<br></p>
 

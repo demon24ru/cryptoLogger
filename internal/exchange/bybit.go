@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 
 	"strings"
 	"time"
@@ -18,8 +19,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// StartBinanceFutures is for starting binance exchange functions.
-func StartBinanceFutures(appCtx context.Context, markets []config.Market, retry *config.Retry, connCfg *config.Connection) error {
+// StartByBit is for starting bybit exchange functions.
+func StartByBit(appCtx context.Context, markets []config.Market, retry *config.Retry, connCfg *config.Connection) error {
 
 	// If any error occurs or connection is lost, retry the exchange functions with a time gap till it reaches
 	// a configured number of retry.
@@ -28,11 +29,11 @@ func StartBinanceFutures(appCtx context.Context, markets []config.Market, retry 
 	lastRetryTime := time.Now()
 
 	for {
-		err := newBinanceFutures(appCtx, markets, connCfg)
+		err := newByBit(appCtx, markets, connCfg)
 		if err != nil {
-			log.Error().Err(err).Str("exchange", "binanceFutures").Msg("error occurred")
+			log.Error().Err(err).Str("exchange", "bybit").Msg("error occurred")
 			if retry.Number == 0 {
-				return errors.New("not able to connect binance exchange. please check the log for details")
+				return errors.New("not able to connect bybit exchange. please check the log for details")
 			}
 			if retry.ResetSec == 0 || time.Since(lastRetryTime).Seconds() < float64(retry.ResetSec) {
 				retryCount++
@@ -41,12 +42,12 @@ func StartBinanceFutures(appCtx context.Context, markets []config.Market, retry 
 			}
 			lastRetryTime = time.Now()
 			if retryCount > retry.Number {
-				err = fmt.Errorf("not able to connect binance exchange even after %d retry", retry.Number)
-				log.Error().Err(err).Str("exchange", "binanceFutures").Msg("")
+				err = fmt.Errorf("not able to connect bybit exchange even after %d retry", retry.Number)
+				log.Error().Err(err).Str("exchange", "bybit").Msg("")
 				return err
 			}
 
-			log.Error().Str("exchange", "binanceFutures").Int("retry", retryCount).Msg(fmt.Sprintf("retrying functions in %d seconds", retry.GapSec))
+			log.Error().Str("exchange", "bybit").Int("retry", retryCount).Msg(fmt.Sprintf("retrying functions in %d seconds", retry.GapSec))
 			tick := time.NewTicker(time.Duration(retry.GapSec) * time.Second)
 			select {
 			case <-tick.C:
@@ -54,14 +55,14 @@ func StartBinanceFutures(appCtx context.Context, markets []config.Market, retry 
 
 			// Return, if there is any error from another exchange.
 			case <-appCtx.Done():
-				log.Error().Str("exchange", "binanceFutures").Msg("ctx canceled, return from StartBinance")
+				log.Error().Str("exchange", "bybit").Msg("ctx canceled, return from StartByBit")
 				return appCtx.Err()
 			}
 		}
 	}
 }
 
-type binanceFutures struct {
+type bybit struct {
 	ws                      connector.Websocket
 	rest                    *connector.REST
 	connCfg                 *config.Connection
@@ -77,29 +78,46 @@ type binanceFutures struct {
 	wsClickHouseOrdersBooks chan []storage.OrdersBook
 }
 
-type wsRespBestPricesBinanceFutures struct {
-	BestBid     string `json:"b"`
-	BestBidSize string `json:"B"`
-	BestAsk     string `json:"a"`
-	BestAskSize string `json:"A"`
+type wsSubByBit struct {
+	Op   string    `json:"op"`
+	Args [1]string `json:"args"`
+	ID   int       `json:"req_id"`
 }
 
-type wsRespTradeBinanceFutures struct {
-	Symbol     string `json:"s"`
-	TradeID    uint64 `json:"a"`
-	Maker      bool   `json:"m"`
-	Qty        string `json:"q"`
-	TradePrice string `json:"p"`
-	TradeTime  int64  `json:"T"`
+type wsRespByBit struct {
+	Event         string `json:"topic"`
+	Symbol        string
+	mktCommitName string
+	data          string
+	dataAsk       string
+
+	// This field value is not used but still need to present
+	// because otherwise json decoder does case-insensitive match with "m" and "M".
+	IsBestMatch bool `json:"M"`
+
+	Edel int64 `json:"E"`
 }
 
-type wsRespLevelBookBinanceFutures struct {
-	Symbol string     `json:"s"`
-	Bids   [][]string `json:"b"`
-	Asks   [][]string `json:"a"`
+type wsRespLevelBookByBit struct {
+	Data struct {
+		Bids [][]string `json:"b"`
+		Asks [][]string `json:"a"`
+	} `json:"data"`
 }
 
-//type restRespBinance struct {
+type wsRespTradeTickByBit struct {
+	TradeTime int64  `json:"T"`
+	Symbol    string `json:"s"`
+	Side      string `json:"S"`
+	Size      string `json:"v"`
+	Price     string `json:"p"`
+}
+
+type wsRespTradeByBit struct {
+	Data []wsRespTradeTickByBit `json:"data"`
+}
+
+//type restRespByBit struct {
 //	TradeID uint64 `json:"id"`
 //	Maker   bool   `json:"isBuyerMaker"`
 //	Qty     string `json:"qty"`
@@ -107,12 +125,12 @@ type wsRespLevelBookBinanceFutures struct {
 //	Time    int64  `json:"time"`
 //}
 
-func newBinanceFutures(appCtx context.Context, markets []config.Market, connCfg *config.Connection) error {
+func newByBit(appCtx context.Context, markets []config.Market, connCfg *config.Connection) error {
 
 	// If any exchange function fails, force all the other functions to stop and return.
-	binanceErrGroup, ctx := errgroup.WithContext(appCtx)
+	bybitErrGroup, ctx := errgroup.WithContext(appCtx)
 
-	b := binanceFutures{connCfg: connCfg}
+	b := bybit{connCfg: connCfg}
 
 	err := b.cfgLookup(markets)
 	if err != nil {
@@ -136,34 +154,38 @@ func newBinanceFutures(appCtx context.Context, markets []config.Market, connCfg 
 						return err
 					}
 
-					binanceErrGroup.Go(func() error {
+					bybitErrGroup.Go(func() error {
 						return b.closeWsConnOnError(ctx)
 					})
 
-					binanceErrGroup.Go(func() error {
+					bybitErrGroup.Go(func() error {
+						return b.pingWs(ctx)
+					})
+
+					bybitErrGroup.Go(func() error {
 						return b.readWs(ctx)
 					})
 
 					if b.ter != nil {
-						binanceErrGroup.Go(func() error {
+						bybitErrGroup.Go(func() error {
 							return WsTickersToStorage(ctx, b.ter, b.wsTerTickers)
 						})
-						binanceErrGroup.Go(func() error {
+						bybitErrGroup.Go(func() error {
 							return WsTradesToStorage(ctx, b.ter, b.wsTerTrades)
 						})
-						binanceErrGroup.Go(func() error {
+						bybitErrGroup.Go(func() error {
 							return WsOrdersBookToStorage(ctx, b.ter, b.wsTerOrdersBooks)
 						})
 					}
 
 					if b.clickhouse != nil {
-						binanceErrGroup.Go(func() error {
+						bybitErrGroup.Go(func() error {
 							return WsTickersToStorage(ctx, b.clickhouse, b.wsClickHouseTickers)
 						})
-						binanceErrGroup.Go(func() error {
+						bybitErrGroup.Go(func() error {
 							return WsTradesToStorage(ctx, b.clickhouse, b.wsClickHouseTrades)
 						})
-						binanceErrGroup.Go(func() error {
+						bybitErrGroup.Go(func() error {
 							return WsOrdersBookToStorage(ctx, b.clickhouse, b.wsClickHouseOrdersBooks)
 						})
 					}
@@ -183,7 +205,7 @@ func newBinanceFutures(appCtx context.Context, markets []config.Market, connCfg 
 				// (including 1 pong frame (sent by ws library), so 4-1)
 				threshold++
 				if threshold == 3 {
-					log.Debug().Str("exchange", "binanceFutures").Int("count", threshold).Msg("subscribe threshold reached, waiting 2 sec")
+					log.Debug().Str("exchange", "bybit").Int("count", threshold).Msg("subscribe threshold reached, waiting 2 sec")
 					time.Sleep(2 * time.Second)
 					threshold = 0
 				}
@@ -205,7 +227,7 @@ func newBinanceFutures(appCtx context.Context, markets []config.Market, connCfg 
 				//	mktID := market.ID
 				//	channel := info.Channel
 				//	restPingIntSec := info.RESTPingIntSec
-				//	binanceErrGroup.Go(func() error {
+				//	bybitErrGroup.Go(func() error {
 				//		return b.processREST(ctx, mktID, mktCommitName, channel, restPingIntSec)
 				//	})
 				//
@@ -214,14 +236,14 @@ func newBinanceFutures(appCtx context.Context, markets []config.Market, connCfg 
 		}
 	}
 
-	err = binanceErrGroup.Wait()
+	err = bybitErrGroup.Wait()
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (b *binanceFutures) cfgLookup(markets []config.Market) error {
+func (b *bybit) cfgLookup(markets []config.Market) error {
 	var id int
 
 	// Configurations flat map is prepared for easy lookup later in the app.
@@ -272,8 +294,8 @@ func (b *binanceFutures) cfgLookup(markets []config.Market) error {
 	return nil
 }
 
-func (b *binanceFutures) connectWs(ctx context.Context) error {
-	ws, err := connector.NewWebsocket(ctx, &b.connCfg.WS, config.BinanceFuturesWebsocketURL)
+func (b *bybit) connectWs(ctx context.Context) error {
+	ws, err := connector.NewWebsocket(ctx, &b.connCfg.WS, config.BybitWebsocketURL+"/spot")
 	if err != nil {
 		if !errors.Is(err, ctx.Err()) {
 			logErrStack(err)
@@ -281,13 +303,13 @@ func (b *binanceFutures) connectWs(ctx context.Context) error {
 		return err
 	}
 	b.ws = ws
-	log.Info().Str("exchange", "binanceFutures").Msg("websocket connected")
+	log.Info().Str("exchange", "bybit").Msg("websocket connected")
 	return nil
 }
 
 // closeWsConnOnError closes websocket connection if there is any error in app context.
 // This will unblock all read and writes on websocket.
-func (b *binanceFutures) closeWsConnOnError(ctx context.Context) error {
+func (b *bybit) closeWsConnOnError(ctx context.Context) error {
 	<-ctx.Done()
 	err := b.ws.Conn.Close()
 	if err != nil {
@@ -297,21 +319,21 @@ func (b *binanceFutures) closeWsConnOnError(ctx context.Context) error {
 }
 
 // subWsChannel sends channel subscription requests to the websocket server.
-func (b *binanceFutures) subWsChannel(market string, channel string, id int) error {
+func (b *bybit) subWsChannel(market string, channel string, id int) error {
 	if channel == "trade" {
-		channel = "aggTrade"
+		channel = "publicTrade"
 	}
 	if channel == "ticker" {
-		channel = "bookTicker"
+		channel = "orderbook.1"
 	}
 	if channel == "ordersbook" {
-		channel = "depth20@100ms"
+		channel = "orderbook.50"
 	}
-	channel = strings.ToLower(market) + "@" + channel
-	sub := wsSubBinance{
-		Method: "SUBSCRIBE",
-		Params: [1]string{channel},
-		ID:     id,
+	channel = channel + "." + strings.ToUpper(market)
+	sub := wsSubByBit{
+		Op:   "subscribe",
+		Args: [1]string{channel},
+		ID:   id,
 	}
 	frame, err := jsoniter.Marshal(&sub)
 	if err != nil {
@@ -331,22 +353,38 @@ func (b *binanceFutures) subWsChannel(market string, channel string, id int) err
 	return nil
 }
 
-// Ping pong Ws
-func (b *binanceFutures) pong() error {
-	err := b.ws.Write([]byte("pong frame"))
-	if err != nil {
-		if errors.Is(err, net.ErrClosed) {
-			err = errors.New("context canceled")
-		} else {
-			logErrStack(err)
+// pingWs sends ping request to websocket server for every required seconds (~10% earlier to required seconds on a safer side).
+func (b *bybit) pingWs(ctx context.Context) error {
+	tick := time.NewTicker(time.Duration(20) * time.Second)
+	defer tick.Stop()
+	for {
+		select {
+		case <-tick.C:
+			frame, err := jsoniter.Marshal(map[string]string{
+				"req_id": strconv.FormatInt(time.Now().Unix(), 10),
+				"op":     "ping",
+			})
+			if err != nil {
+				logErrStack(err)
+				return err
+			}
+			err = b.ws.Write(frame)
+			if err != nil {
+				if errors.Is(err, net.ErrClosed) {
+					err = errors.New("context canceled")
+				} else {
+					logErrStack(err)
+				}
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
 		}
-		return err
 	}
-	return nil
 }
 
 // readWs reads ticker / trade data from websocket channels.
-func (b *binanceFutures) readWs(ctx context.Context) error {
+func (b *bybit) readWs(ctx context.Context) error {
 
 	// To avoid data race, creating a new local lookup map.
 	cfgLookup := make(map[cfgLookupKey]cfgLookupVal, len(b.cfgMap))
@@ -384,39 +422,26 @@ func (b *binanceFutures) readWs(ctx context.Context) error {
 				continue
 			}
 
-			if string(frame[:4]) == "ping" {
-				log.Info().Str("exchange", "binanceFutures").Str("func", "ping").Msg(string(frame))
-				err = b.pong()
-				if err != nil {
-					return err
-				}
-				continue
-			}
-
-			wr := wsRespBinance{}
+			wr := wsRespByBit{}
 			err = jsoniter.Unmarshal(frame, &wr)
 			if err != nil {
-				log.Debug().Str("exchange", "binanceFutures").Str("func", "readWs").Msg(string(frame))
+				log.Debug().Str("exchange", "bybit").Str("func", "readWs").Msg(string(frame))
 				logErrStack(err)
 				return err
 			}
 
-			if wr.ID != 0 {
-				log.Debug().Str("exchange", "binanceFutures").Str("func", "readWs").Str("market", b.channelIds[wr.ID][0]).Str("channel", b.channelIds[wr.ID][1]).Msg("channel subscribed")
-				continue
-			}
-			if wr.Msg != "" {
-				log.Error().Str("exchange", "binanceFutures").Str("func", "readWs").Int("code", wr.Code).Str("msg", wr.Msg).Msg("")
-				return errors.New("binanceFutures websocket error")
-			}
+			stArr := strings.Split(wr.Event, ".")
+			wr.Symbol = stArr[len(stArr)-1]
 
-			switch wr.Event {
-			case "bookTicker":
-				wr.Event = "ticker"
-			case "aggTrade":
+			switch stArr[0] {
+			case "orderbook":
+				if stArr[1] == "1" {
+					wr.Event = "ticker"
+				} else {
+					wr.Event = "ordersbook"
+				}
+			case "publicTrade":
 				wr.Event = "trade"
-			case "depthUpdate":
-				wr.Event = "ordersbook"
 			}
 
 			// Consider frame only in configured interval, otherwise ignore it.
@@ -434,71 +459,112 @@ func (b *binanceFutures) readWs(ctx context.Context) error {
 
 				switch wr.Event {
 				case "ticker":
-					wrti := wsRespBestPricesBinanceFutures{}
-					err = jsoniter.Unmarshal(frame, &wrti)
+					wrt := wsRespLevelBookByBit{}
+					err = jsoniter.Unmarshal(frame, &wrt)
 					if err != nil {
-						log.Debug().Str("exchange", "binanceFutures").Str("func", "readWs").Msg(string(frame))
+						log.Debug().Str("exchange", "bybitFutures").Str("func", "readWs").Msg(string(frame))
 						logErrStack(err)
 						return err
 					}
 
+					var BestAsk, BestAskSize, BestBid, BestBidSize string
 					sTick, ok := storeTick[wr.mktCommitName]
-					if ok && sTick.bestAsk == wrti.BestAsk && sTick.bestAskSize == wrti.BestAskSize && sTick.bestBid == wrti.BestBid && sTick.bestBidSize == wrti.BestBidSize {
+					if ok {
+						BestAsk = sTick.bestAsk
+						BestAskSize = sTick.bestAskSize
+						BestBid = sTick.bestBid
+						BestBidSize = sTick.bestBidSize
+					}
+
+					if len(wrt.Data.Bids) > 0 {
+						if len(wrt.Data.Bids) == 2 {
+							if wrt.Data.Bids[0][1] != "0" {
+								BestBid = wrt.Data.Bids[0][0]
+								BestBidSize = wrt.Data.Bids[0][1]
+							} else {
+								BestBid = wrt.Data.Bids[1][0]
+								BestBidSize = wrt.Data.Bids[1][1]
+							}
+						} else {
+							BestBid = wrt.Data.Bids[0][0]
+							BestBidSize = wrt.Data.Bids[0][1]
+						}
+					}
+
+					if len(wrt.Data.Asks) > 0 {
+						if len(wrt.Data.Asks) == 2 {
+							if wrt.Data.Asks[0][1] != "0" {
+								BestAsk = wrt.Data.Asks[0][0]
+								BestAskSize = wrt.Data.Asks[0][1]
+							} else {
+								BestAsk = wrt.Data.Asks[1][0]
+								BestAskSize = wrt.Data.Asks[1][1]
+							}
+						} else {
+							BestAsk = wrt.Data.Asks[0][0]
+							BestAskSize = wrt.Data.Asks[0][1]
+						}
+					}
+
+					if ok && sTick.bestAsk == BestAsk && sTick.bestAskSize == BestAskSize && sTick.bestBid == BestBid && sTick.bestBidSize == BestBidSize {
 						continue
 					}
 
 					storeTick[wr.mktCommitName] = storeTickerData{
-						bestAsk:     wrti.BestAsk,
-						bestAskSize: wrti.BestAskSize,
-						bestBid:     wrti.BestBid,
-						bestBidSize: wrti.BestBidSize,
+						bestAsk:     BestAsk,
+						bestAskSize: BestAskSize,
+						bestBid:     BestBid,
+						bestBidSize: BestBidSize,
 					}
 
 					wr.data, err = jsoniter.MarshalToString(commitTicker{
-						BestAsk:     wrti.BestAsk,
-						BestAskSize: wrti.BestAskSize,
-						BestBid:     wrti.BestBid,
-						BestBidSize: wrti.BestBidSize,
+						BestAsk:     BestAsk,
+						BestAskSize: BestAskSize,
+						BestBid:     BestBid,
+						BestBidSize: BestBidSize,
 					})
 					if err != nil {
 						logErrStack(err)
 						return err
 					}
 				case "trade":
-					wrt := wsRespTradeBinanceFutures{}
+					wrt := wsRespTradeByBit{}
 					err = jsoniter.Unmarshal(frame, &wrt)
 					if err != nil {
-						log.Debug().Str("exchange", "binanceFutures").Str("func", "readWs").Msg(string(frame))
+						log.Debug().Str("exchange", "bybitFutures").Str("func", "readWs").Msg(string(frame))
 						logErrStack(err)
 						return err
 					}
-					side := "buy"
-					if wrt.Maker {
-						side = "sell"
+
+					rt := []commitTrade{}
+					for _, item := range wrt.Data {
+						rt = append(rt, commitTrade{
+							Side:  strings.ToLower(item.Side),
+							Size:  item.Size,
+							Price: item.Price,
+						})
 					}
-					wr.data, err = jsoniter.MarshalToString(commitTrade{
-						Side:  side,
-						Size:  wrt.Qty,
-						Price: wrt.TradePrice,
-					})
+
+					wr.data, err = jsoniter.MarshalToString(rt)
 					if err != nil {
 						logErrStack(err)
 						return err
 					}
 				case "ordersbook":
-					wrt := wsRespLevelBookBinanceFutures{}
+					wrt := wsRespLevelBookByBit{}
 					err = jsoniter.Unmarshal(frame, &wrt)
 					if err != nil {
-						log.Debug().Str("exchange", "binanceFutures").Str("func", "readWs").Msg(string(frame))
+						log.Debug().Str("exchange", "bybitFutures").Str("func", "readWs").Msg(string(frame))
 						logErrStack(err)
 						return err
 					}
-					wr.data, err = jsoniter.MarshalToString(wrt.Bids)
+
+					wr.data, err = jsoniter.MarshalToString(wrt.Data.Bids)
 					if err != nil {
 						logErrStack(err)
 						return err
 					}
-					wr.dataAsk, err = jsoniter.MarshalToString(wrt.Asks)
+					wr.dataAsk, err = jsoniter.MarshalToString(wrt.Data.Asks)
 					if err != nil {
 						logErrStack(err)
 						return err
@@ -522,12 +588,12 @@ func (b *binanceFutures) readWs(ctx context.Context) error {
 // transforms it to a common ticker / trade store format,
 // buffers the same in memory and
 // then sends it to different storage systems for commit through go channels.
-func (b *binanceFutures) processWs(ctx context.Context, wr *wsRespBinance, cd *commitData) error {
+func (b *bybit) processWs(ctx context.Context, wr *wsRespByBit, cd *commitData) error {
 	switch wr.Event {
 	case "ticker":
 		ticker := storage.Ticker{}
-		ticker.ExchangeName = "binance"
-		ticker.MktCommitName = wr.mktCommitName + "F"
+		ticker.ExchangeName = "bybit"
+		ticker.MktCommitName = wr.mktCommitName
 		ticker.Data = wr.data
 		ticker.Timestamp = time.Now().UTC()
 
@@ -561,8 +627,8 @@ func (b *binanceFutures) processWs(ctx context.Context, wr *wsRespBinance, cd *c
 		}
 	case "trade":
 		trade := storage.Trade{}
-		trade.ExchangeName = "binance"
-		trade.MktCommitName = wr.mktCommitName + "F"
+		trade.ExchangeName = "bybit"
+		trade.MktCommitName = wr.mktCommitName
 		trade.Data = wr.data
 		trade.Timestamp = time.Now().UTC()
 
@@ -596,8 +662,8 @@ func (b *binanceFutures) processWs(ctx context.Context, wr *wsRespBinance, cd *c
 		}
 	case "ordersbook":
 		ordersbook := storage.OrdersBook{}
-		ordersbook.ExchangeName = "binance"
-		ordersbook.MktCommitName = wr.mktCommitName + "F"
+		ordersbook.ExchangeName = "bybit"
+		ordersbook.MktCommitName = wr.mktCommitName
 		ordersbook.Sequence = ""
 		ordersbook.Bids = wr.data
 		ordersbook.Asks = wr.dataAsk
@@ -635,14 +701,14 @@ func (b *binanceFutures) processWs(ctx context.Context, wr *wsRespBinance, cd *c
 	return nil
 }
 
-//func (b *binanceFutures) connectRest() error {
+//func (b *bybit) connectRest() error {
 //	rest, err := connector.GetREST()
 //	if err != nil {
 //		logErrStack(err)
 //		return err
 //	}
 //	b.rest = rest
-//	log.Info().Str("exchange", "binanceFutures").Msg("REST connection setup is done")
+//	log.Info().Str("exchange", "bybit").Msg("REST connection setup is done")
 //	return nil
 //}
 
@@ -650,7 +716,7 @@ func (b *binanceFutures) processWs(ctx context.Context, wr *wsRespBinance, cd *c
 // transforms it to a common ticker / trade store format,
 // buffers the same in memory and
 // then sends it to different storage systems for commit through go channels.
-//func (b *binanceFutures) processREST(ctx context.Context, mktID string, mktCommitName string, channel string, interval int) error {
+//func (b *bybit) processREST(ctx context.Context, mktID string, mktCommitName string, channel string, interval int) error {
 //	var (
 //		req *http.Request
 //		q   url.Values
@@ -666,7 +732,7 @@ func (b *binanceFutures) processWs(ctx context.Context, wr *wsRespBinance, cd *c
 //
 //	switch channel {
 //	case "ticker":
-//		req, err = b.rest.Request(ctx, "GET", config.BinanceRESTBaseURL+"ticker/price")
+//		req, err = b.rest.Request(ctx, "GET", config.BybitRESTBaseURL+"ticker/price")
 //		if err != nil {
 //			if !errors.Is(err, ctx.Err()) {
 //				logErrStack(err)
@@ -676,7 +742,7 @@ func (b *binanceFutures) processWs(ctx context.Context, wr *wsRespBinance, cd *c
 //		q = req.URL.Query()
 //		q.Add("symbol", mktID)
 //	case "trade":
-//		req, err = b.rest.Request(ctx, "GET", config.BinanceRESTBaseURL+"trades")
+//		req, err = b.rest.Request(ctx, "GET", config.BybitRESTBaseURL+"trades")
 //		if err != nil {
 //			if !errors.Is(err, ctx.Err()) {
 //				logErrStack(err)
@@ -710,7 +776,7 @@ func (b *binanceFutures) processWs(ctx context.Context, wr *wsRespBinance, cd *c
 //					return err
 //				}
 //
-//				rr := restRespBinance{}
+//				rr := restRespByBit{}
 //				if err = jsoniter.NewDecoder(resp.Body).Decode(&rr); err != nil {
 //					logErrStack(err)
 //					resp.Body.Close()
@@ -725,7 +791,7 @@ func (b *binanceFutures) processWs(ctx context.Context, wr *wsRespBinance, cd *c
 //				}
 //
 //				ticker := storage.Ticker{
-//					Exchange:      "binanceFutures",
+//					Exchange:      "bybit",
 //					MktID:         mktID,
 //					MktCommitName: mktCommitName,
 //					Price:         price,
@@ -771,7 +837,7 @@ func (b *binanceFutures) processWs(ctx context.Context, wr *wsRespBinance, cd *c
 //					return err
 //				}
 //
-//				rr := []restRespBinance{}
+//				rr := []restRespByBit{}
 //				if err := jsoniter.NewDecoder(resp.Body).Decode(&rr); err != nil {
 //					logErrStack(err)
 //					resp.Body.Close()
@@ -804,7 +870,7 @@ func (b *binanceFutures) processWs(ctx context.Context, wr *wsRespBinance, cd *c
 //					timestamp := time.Unix(0, r.Time*int64(time.Millisecond)).UTC()
 //
 //					trade := storage.Trade{
-//						Exchange:      "binanceFutures",
+//						Exchange:      "bybit",
 //						MktID:         mktID,
 //						MktCommitName: mktCommitName,
 //						TradeID:       strconv.FormatUint(r.TradeID, 10),

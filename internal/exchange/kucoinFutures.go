@@ -453,7 +453,7 @@ func (k *kucoinFutures) readWs(ctx context.Context) error {
 		clickHouseLevel2:  make([]storage.Level2, 0, k.connCfg.ClickHouse.Level2CommitBuf),
 	}
 
-	storeTick := make(map[string]storeTickerDataKucoinFuters)
+	storeTick := make(map[string]storeTickerData)
 
 	for {
 		select {
@@ -520,30 +520,46 @@ func (k *kucoinFutures) readWs(ctx context.Context) error {
 					continue
 				}
 
-				switch wr.Subject {
+				switch wr.Topic {
 				case "ticker":
 
 					tick := wr.Data.(map[string]interface{})
 
-					//price := tick["price"].(float64)
 					bestAsk := tick["bestAskPrice"].(string)
-					bestAskSize := tick["bestAskSize"].(float64)
+					bestAskSize := strconv.FormatFloat(tick["bestAskSize"].(float64), 'f', 0, 64)
 					bestBid := tick["bestBidPrice"].(string)
-					bestBidSize := tick["bestBidSize"].(float64)
+					bestBidSize := strconv.FormatFloat(tick["bestBidSize"].(float64), 'f', 0, 64)
 
 					sTick, ok := storeTick[wr.mktCommitName]
 					if ok && sTick.bestAsk == bestAsk && sTick.bestAskSize == bestAskSize && sTick.bestBid == bestBid && sTick.bestBidSize == bestBidSize {
 						continue
 					}
 
-					storeTick[wr.mktCommitName] = storeTickerDataKucoinFuters{
-						//price:       price,
+					storeTick[wr.mktCommitName] = storeTickerData{
 						bestAsk:     bestAsk,
 						bestAskSize: bestAskSize,
 						bestBid:     bestBid,
 						bestBidSize: bestBidSize,
 					}
 
+					wr.Data = commitTicker{
+						BestAsk:     bestAsk,
+						BestAskSize: bestAskSize,
+						BestBid:     bestBid,
+						BestBidSize: bestBidSize,
+					}
+				case "trade":
+					trade := wr.Data.(map[string]interface{})
+
+					Side := trade["side"].(string)
+					Size := strconv.FormatFloat(trade["size"].(float64), 'f', 0, 64)
+					Price := trade["price"].(string)
+
+					wr.Data = commitTrade{
+						Side:  strings.ToLower(Side),
+						Size:  Size,
+						Price: Price,
+					}
 				case "level2":
 
 					d := wr.Data.(map[string]interface{})
@@ -608,11 +624,12 @@ func (k *kucoinFutures) processWs(ctx context.Context, wr *respkucoinFutures, cd
 	switch wr.Topic {
 	case "ticker":
 		ticker := storage.Ticker{}
-		ticker.MktCommitName = wr.mktCommitName
+		ticker.ExchangeName = "kucoin"
+		ticker.MktCommitName = wr.mktCommitName[:len(wr.mktCommitName)-1] + "F"
 		ticker.Data = wr.data
 		ticker.Timestamp = time.Now().UTC()
 
-		key := cfgLookupKey{market: ticker.MktCommitName, channel: "ticker"}
+		key := cfgLookupKey{market: wr.mktCommitName, channel: "ticker"}
 		val := k.cfgMap[key]
 		if val.terStr {
 			cd.terTickersCount++
@@ -642,11 +659,12 @@ func (k *kucoinFutures) processWs(ctx context.Context, wr *respkucoinFutures, cd
 		}
 	case "trade":
 		trade := storage.Trade{}
-		trade.MktCommitName = wr.mktCommitName
+		trade.ExchangeName = "kucoin"
+		trade.MktCommitName = wr.mktCommitName[:len(wr.mktCommitName)-1] + "F"
 		trade.Data = wr.data
 		trade.Timestamp = time.Now().UTC()
 
-		key := cfgLookupKey{market: trade.MktCommitName, channel: "trade"}
+		key := cfgLookupKey{market: wr.mktCommitName, channel: "trade"}
 		val := k.cfgMap[key]
 		if val.terStr {
 			cd.terTradesCount++
@@ -676,11 +694,12 @@ func (k *kucoinFutures) processWs(ctx context.Context, wr *respkucoinFutures, cd
 		}
 	case "level2":
 		level2 := storage.Level2{}
-		level2.MktCommitName = wr.mktCommitName
+		level2.ExchangeName = "kucoin"
+		level2.MktCommitName = wr.mktCommitName[:len(wr.mktCommitName)-1] + "F"
 		level2.Data = wr.data
 		level2.Timestamp = time.Now().UTC()
 
-		key := cfgLookupKey{market: level2.MktCommitName, channel: "level2"}
+		key := cfgLookupKey{market: wr.mktCommitName, channel: "level2"}
 		val := k.cfgMap[key]
 		if val.terStr {
 			cd.terLevel2Count++
