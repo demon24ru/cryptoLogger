@@ -168,62 +168,62 @@ services:
     networks:
       intranet:
         ipv4_address: 172.23.0.14
-  cryptogalaxy12:
-    build:
-      context: ./
-      dockerfile: ./Dockerfile
-    container_name: cryptogalaxy12
-    restart: always
-    volumes:
-      - /cdnf/cryptologger12.log:/cryptogalaxy/cryptologger.log
-      - ./config12.json:/cryptogalaxy/config.json
-    depends_on:
-      - db
-    networks:
-      intranet:
-        ipv4_address: 172.23.0.15
-  cryptogalaxy13:
-    build:
-      context: ./
-      dockerfile: ./Dockerfile
-    container_name: cryptogalaxy13
-    restart: always
-    volumes:
-      - /cdnf/cryptologger13.log:/cryptogalaxy/cryptologger.log
-      - ./config13.json:/cryptogalaxy/config.json
-    depends_on:
-      - db
-    networks:
-      intranet:
-        ipv4_address: 172.23.0.16
-  cryptogalaxy14:
-    build:
-      context: ./
-      dockerfile: ./Dockerfile
-    container_name: cryptogalaxy14
-    restart: always
-    volumes:
-      - /cdnf/cryptologger14.log:/cryptogalaxy/cryptologger.log
-      - ./config14.json:/cryptogalaxy/config.json
-    depends_on:
-      - db
-    networks:
-      intranet:
-        ipv4_address: 172.23.0.17
-  cryptogalaxy15:
-    build:
-      context: ./
-      dockerfile: ./Dockerfile
-    container_name: cryptogalaxy15
-    restart: always
-    volumes:
-      - /cdnf/cryptologger15.log:/cryptogalaxy/cryptologger.log
-      - ./config15.json:/cryptogalaxy/config.json
-    depends_on:
-      - db
-    networks:
-      intranet:
-        ipv4_address: 172.23.0.18
+#  cryptogalaxy12:
+#    build:
+#      context: ./
+#      dockerfile: ./Dockerfile
+#    container_name: cryptogalaxy12
+#    restart: always
+#    volumes:
+#      - /cdnf/cryptologger12.log:/cryptogalaxy/cryptologger.log
+#      - ./config12.json:/cryptogalaxy/config.json
+#    depends_on:
+#      - db
+#    networks:
+#      intranet:
+#        ipv4_address: 172.23.0.15
+#  cryptogalaxy13:
+#    build:
+#      context: ./
+#      dockerfile: ./Dockerfile
+#    container_name: cryptogalaxy13
+#    restart: always
+#    volumes:
+#      - /cdnf/cryptologger13.log:/cryptogalaxy/cryptologger.log
+#      - ./config13.json:/cryptogalaxy/config.json
+#    depends_on:
+#      - db
+#    networks:
+#      intranet:
+#        ipv4_address: 172.23.0.16
+#  cryptogalaxy14:
+#    build:
+#      context: ./
+#      dockerfile: ./Dockerfile
+#    container_name: cryptogalaxy14
+#    restart: always
+#    volumes:
+#      - /cdnf/cryptologger14.log:/cryptogalaxy/cryptologger.log
+#      - ./config14.json:/cryptogalaxy/config.json
+#    depends_on:
+#      - db
+#    networks:
+#      intranet:
+#        ipv4_address: 172.23.0.17
+#  cryptogalaxy15:
+#    build:
+#      context: ./
+#      dockerfile: ./Dockerfile
+#    container_name: cryptogalaxy15
+#    restart: always
+#    volumes:
+#      - /cdnf/cryptologger15.log:/cryptogalaxy/cryptologger.log
+#      - ./config15.json:/cryptogalaxy/config.json
+#    depends_on:
+#      - db
+#    networks:
+#      intranet:
+#        ipv4_address: 172.23.0.18
   db:
     image: yandex/clickhouse-server
     restart: always
