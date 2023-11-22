@@ -168,34 +168,34 @@ services:
     networks:
       intranet:
         ipv4_address: 172.23.0.14
-#  cryptogalaxy12:
-#    build:
-#      context: ./
-#      dockerfile: ./Dockerfile
-#    container_name: cryptogalaxy12
-#    restart: always
-#    volumes:
-#      - /cdnf/cryptologger12.log:/cryptogalaxy/cryptologger.log
-#      - ./config12.json:/cryptogalaxy/config.json
-#    depends_on:
-#      - db
-#    networks:
-#      intranet:
-#        ipv4_address: 172.23.0.15
-#  cryptogalaxy13:
-#    build:
-#      context: ./
-#      dockerfile: ./Dockerfile
-#    container_name: cryptogalaxy13
-#    restart: always
-#    volumes:
-#      - /cdnf/cryptologger13.log:/cryptogalaxy/cryptologger.log
-#      - ./config13.json:/cryptogalaxy/config.json
-#    depends_on:
-#      - db
-#    networks:
-#      intranet:
-#        ipv4_address: 172.23.0.16
+  cryptogalaxy12:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    container_name: cryptogalaxy12
+    restart: always
+    volumes:
+      - /cdnf/cryptologger12.log:/cryptogalaxy/cryptologger.log
+      - ./config12.json:/cryptogalaxy/config.json
+    depends_on:
+      - db
+    networks:
+      intranet:
+        ipv4_address: 172.23.0.15
+  cryptogalaxy13:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    container_name: cryptogalaxy13
+    restart: always
+    volumes:
+      - /cdnf/cryptologger13.log:/cryptogalaxy/cryptologger.log
+      - ./config13.json:/cryptogalaxy/config.json
+    depends_on:
+      - db
+    networks:
+      intranet:
+        ipv4_address: 172.23.0.16
 #  cryptogalaxy14:
 #    build:
 #      context: ./
