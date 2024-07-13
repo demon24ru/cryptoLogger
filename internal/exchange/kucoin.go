@@ -517,12 +517,12 @@ func (k *kucoin) readWs(ctx context.Context) error {
 
 						tick := wr.Data.(map[string]interface{})
 
-						asks := tick["asks"].([]string)
-						bids := tick["bids"].([]string)
-						bestAsk := asks[0]
-						bestAskSize := asks[1]
-						bestBid := bids[0]
-						bestBidSize := bids[1]
+						asks := tick["asks"].([]interface{})
+						bids := tick["bids"].([]interface{})
+						bestAsk := asks[0].(string)
+						bestAskSize := asks[1].(string)
+						bestBid := bids[0].(string)
+						bestBidSize := bids[1].(string)
 
 						sTick, ok := storeTick[wr.mktCommitName]
 						if ok && sTick.bestAsk == bestAsk && sTick.bestAskSize == bestAskSize && sTick.bestBid == bestBid && sTick.bestBidSize == bestBidSize {
