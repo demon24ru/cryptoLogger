@@ -398,7 +398,7 @@ func (k *kucoin) pingWs(ctx context.Context) error {
 func (k *kucoin) subWsChannel(market string, channel string, id int) error {
 	switch channel {
 	case "ticker":
-		channel = "/market/ticker:" + market
+		channel = "/spotMarket/level1:" + market
 	case "trade":
 		channel = "/market/match:" + market
 	case "level2":
@@ -491,7 +491,7 @@ func (k *kucoin) readWs(ctx context.Context) error {
 				}
 
 				switch s[0] {
-				case "/market/ticker":
+				case "/spotMarket/level1":
 					wr.Topic = "ticker"
 				case "/market/match":
 					wr.Topic = "trade"
@@ -517,10 +517,12 @@ func (k *kucoin) readWs(ctx context.Context) error {
 
 						tick := wr.Data.(map[string]interface{})
 
-						bestAsk := tick["bestAsk"].(string)
-						bestAskSize := tick["bestAskSize"].(string)
-						bestBid := tick["bestBid"].(string)
-						bestBidSize := tick["bestBidSize"].(string)
+						asks := tick["asks"].([]string)
+						bids := tick["bids"].([]string)
+						bestAsk := asks[0]
+						bestAskSize := asks[1]
+						bestBid := bids[0]
+						bestBidSize := bids[1]
 
 						sTick, ok := storeTick[wr.mktCommitName]
 						if ok && sTick.bestAsk == bestAsk && sTick.bestAskSize == bestAskSize && sTick.bestBid == bestBid && sTick.bestBidSize == bestBidSize {
@@ -532,6 +534,13 @@ func (k *kucoin) readWs(ctx context.Context) error {
 							bestAskSize: bestAskSize,
 							bestBid:     bestBid,
 							bestBidSize: bestBidSize,
+						}
+
+						wr.Data = commitTicker{
+							BestAsk:     bestAsk,
+							BestAskSize: bestAskSize,
+							BestBid:     bestBid,
+							BestBidSize: bestBidSize,
 						}
 					case "trade":
 						trade := wr.Data.(map[string]interface{})
