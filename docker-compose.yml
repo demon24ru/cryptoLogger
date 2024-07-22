@@ -237,8 +237,6 @@ services:
       - /cdnf/db/data:/var/lib/clickhouse
       - ./settings/clickhouse/users.xml:/etc/clickhouse-server/users.xml
       - ./settings/clickhouse/config.xml:/etc/clickhouse-server/config.xml
-    environment:
-      - CLICKHOUSE_INIT_TIMEOUT=60
     ports:
       - "8123:8123"
       - "9000:9000"
