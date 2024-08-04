@@ -36,7 +36,7 @@ CREATE TABLE ordersbook
     `sequence` String,
     `bids` String,
     `asks` String,
-    `timestamp` DateTime64(3, 'UTC')
+    `timestamp` DateTime64(9, 'UTC')
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
 ORDER BY (exchange, market, timestamp);

@@ -160,7 +160,7 @@ func (c *ClickHouse) CommitOrdersBook(appCtx context.Context, data []OrdersBook)
 
 	for i := range data {
 		ordersBook := data[i]
-		_, err := stmt.Exec(ordersBook.ExchangeName, ordersBook.MktCommitName, ordersBook.Sequence, ordersBook.Bids, ordersBook.Asks, ordersBook.Timestamp.Format(clickHouseTimestamp))
+		_, err := stmt.Exec(ordersBook.ExchangeName, ordersBook.MktCommitName, ordersBook.Sequence, ordersBook.Bids, ordersBook.Asks, ordersBook.Timestamp.Format(clickHouseTimestampMicroSec))
 		if err != nil {
 			return err
 		}
