@@ -71,22 +71,22 @@ type storeTickerDataKucoinFuters struct {
 }
 
 type kucoinFutures struct {
-	ws                     connector.Websocket
-	rest                   *connector.REST
-	connCfg                *config.Connection
-	cfgMap                 map[cfgLookupKey]cfgLookupVal
-	channelIds             map[int][2]string
-	ter                    *storage.Terminal
-	clickhouse             *storage.ClickHouse
-	wsTerTickers           chan []storage.Ticker
-	wsTerTrades            chan []storage.Trade
-	wsTerLevel2            chan []storage.Level2
-	wsTerOrdersBook        chan []storage.OrdersBook
-	wsClickHouseTickers    chan []storage.Ticker
-	wsClickHouseTrades     chan []storage.Trade
-	wsClickHouseLevel2     chan []storage.Level2
-	wsClickHouseOrdersBook chan []storage.OrdersBook
-	wsPingIntSec           uint64
+	ws                      connector.Websocket
+	rest                    *connector.REST
+	connCfg                 *config.Connection
+	cfgMap                  map[cfgLookupKey]cfgLookupVal
+	channelIds              map[int][2]string
+	ter                     *storage.Terminal
+	clickhouse              *storage.ClickHouse
+	wsTerTickers            chan []storage.Ticker
+	wsTerTrades             chan []storage.Trade
+	wsTerLevel2             chan []storage.Level2
+	wsTerOrdersBooks        chan []storage.OrdersBook
+	wsClickHouseTickers     chan []storage.Ticker
+	wsClickHouseTrades      chan []storage.Trade
+	wsClickHouseLevel2      chan []storage.Level2
+	wsClickHouseOrdersBooks chan []storage.OrdersBook
+	wsPingIntSec            uint64
 }
 
 type wsSubkucoinFutures struct {
@@ -105,6 +105,7 @@ type respkucoinFutures struct {
 	Subject       string      `json:"subject"`
 	mktCommitName string
 	data          string
+	dataAsk       string
 }
 
 type wsConnectRespkucoinFutures struct {
@@ -170,6 +171,9 @@ func newkucoinFutures(appCtx context.Context, markets []config.Market, connCfg *
 						kucoinFuturesErrGroup.Go(func() error {
 							return WsLevel2ToStorage(ctx, k.ter, k.wsTerLevel2)
 						})
+						kucoinFuturesErrGroup.Go(func() error {
+							return WsOrdersBookToStorage(ctx, k.ter, k.wsTerOrdersBooks)
+						})
 					}
 
 					if k.clickhouse != nil {
@@ -181,6 +185,9 @@ func newkucoinFutures(appCtx context.Context, markets []config.Market, connCfg *
 						})
 						kucoinFuturesErrGroup.Go(func() error {
 							return WsLevel2ToStorage(ctx, k.clickhouse, k.wsClickHouseLevel2)
+						})
+						kucoinFuturesErrGroup.Go(func() error {
+							return WsOrdersBookToStorage(ctx, k.clickhouse, k.wsClickHouseOrdersBooks)
 						})
 					}
 
@@ -264,7 +271,7 @@ func (k *kucoinFutures) cfgLookup(markets []config.Market) error {
 						k.wsTerTickers = make(chan []storage.Ticker, 1)
 						k.wsTerTrades = make(chan []storage.Trade, 1)
 						k.wsTerLevel2 = make(chan []storage.Level2, 1)
-						k.wsTerOrdersBook = make(chan []storage.OrdersBook, 1)
+						k.wsTerOrdersBooks = make(chan []storage.OrdersBook, 1)
 					}
 
 				case "clickhouse":
@@ -274,7 +281,7 @@ func (k *kucoinFutures) cfgLookup(markets []config.Market) error {
 						k.wsClickHouseTickers = make(chan []storage.Ticker, 1)
 						k.wsClickHouseTrades = make(chan []storage.Trade, 1)
 						k.wsClickHouseLevel2 = make(chan []storage.Level2, 1)
-						k.wsClickHouseOrdersBook = make(chan []storage.OrdersBook, 1)
+						k.wsClickHouseOrdersBooks = make(chan []storage.OrdersBook, 1)
 					}
 
 				}
@@ -410,6 +417,8 @@ func (k *kucoinFutures) subWsChannel(market string, channel string, id int) erro
 		channel = "/contractMarket/execution:" + market
 	case "level2":
 		channel = "/contractMarket/level2:" + market
+	case "ordersbook":
+		channel = "/contractMarket/level2Depth50:" + market
 	}
 	sub := wsSubkucoinFutures{
 		ID:             id,
@@ -445,12 +454,14 @@ func (k *kucoinFutures) readWs(ctx context.Context) error {
 	}
 
 	cd := commitData{
-		terTickers:        make([]storage.Ticker, 0, k.connCfg.Terminal.TickerCommitBuf),
-		terTrades:         make([]storage.Trade, 0, k.connCfg.Terminal.TradeCommitBuf),
-		terLevel2:         make([]storage.Level2, 0, k.connCfg.Terminal.Level2CommitBuf),
-		clickHouseTickers: make([]storage.Ticker, 0, k.connCfg.ClickHouse.TickerCommitBuf),
-		clickHouseTrades:  make([]storage.Trade, 0, k.connCfg.ClickHouse.TradeCommitBuf),
-		clickHouseLevel2:  make([]storage.Level2, 0, k.connCfg.ClickHouse.Level2CommitBuf),
+		terTickers:           make([]storage.Ticker, 0, k.connCfg.Terminal.TickerCommitBuf),
+		terTrades:            make([]storage.Trade, 0, k.connCfg.Terminal.TradeCommitBuf),
+		terLevel2:            make([]storage.Level2, 0, k.connCfg.Terminal.Level2CommitBuf),
+		terOrdersBooks:       make([]storage.OrdersBook, 0, k.connCfg.Terminal.OrdersBookCommitBuf),
+		clickHouseTickers:    make([]storage.Ticker, 0, k.connCfg.ClickHouse.TickerCommitBuf),
+		clickHouseTrades:     make([]storage.Trade, 0, k.connCfg.ClickHouse.TradeCommitBuf),
+		clickHouseLevel2:     make([]storage.Level2, 0, k.connCfg.ClickHouse.Level2CommitBuf),
+		clickHouseOrdersBook: make([]storage.OrdersBook, 0, k.connCfg.ClickHouse.OrdersBookCommitBuf),
 	}
 
 	storeTick := make(map[string]storeTickerData)
@@ -506,6 +517,8 @@ func (k *kucoinFutures) readWs(ctx context.Context) error {
 					wr.Topic = "trade"
 				case "/contractMarket/level2":
 					wr.Topic = "level2"
+				case "/contractMarket/level2Depth50":
+					wr.Topic = "ordersbook"
 				default:
 					continue
 				}
@@ -591,6 +604,16 @@ func (k *kucoinFutures) readWs(ctx context.Context) error {
 
 					if badBid && badAsk {
 						continue
+					}
+				case "ordersbook":
+					ob := wr.Data.(map[string]interface{})
+					asks := ob["asks"].([]interface{})
+					wr.Data = ob["bids"].([]interface{})
+
+					wr.dataAsk, err = jsoniter.MarshalToString(asks)
+					if err != nil {
+						logErrStack(err)
+						return err
 					}
 				}
 
@@ -725,6 +748,43 @@ func (k *kucoinFutures) processWs(ctx context.Context, wr *respkucoinFutures, cd
 				}
 				cd.clickHouseLevel2Count = 0
 				cd.clickHouseLevel2 = nil
+			}
+		}
+	case "ordersbook":
+		ordersbook := storage.OrdersBook{}
+		ordersbook.ExchangeName = "kucoin"
+		ordersbook.MktCommitName = wr.mktCommitName[:len(wr.mktCommitName)-1] + "F"
+		ordersbook.Sequence = ""
+		ordersbook.Bids = wr.data
+		ordersbook.Asks = wr.dataAsk
+		ordersbook.Timestamp = time.Now().UTC()
+
+		key := cfgLookupKey{market: wr.mktCommitName, channel: "ordersbook"}
+		val := k.cfgMap[key]
+		if val.terStr {
+			cd.terOrdersBookCount++
+			cd.terOrdersBooks = append(cd.terOrdersBooks, ordersbook)
+			if cd.terOrdersBookCount == k.connCfg.Terminal.OrdersBookCommitBuf {
+				select {
+				case k.wsTerOrdersBooks <- cd.terOrdersBooks:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+				cd.terOrdersBookCount = 0
+				cd.terOrdersBooks = nil
+			}
+		}
+		if val.clickHouseStr {
+			cd.clickHouseOrdersBookCount++
+			cd.clickHouseOrdersBook = append(cd.clickHouseOrdersBook, ordersbook)
+			if cd.clickHouseOrdersBookCount == k.connCfg.ClickHouse.Level2CommitBuf {
+				select {
+				case k.wsClickHouseOrdersBooks <- cd.clickHouseOrdersBook:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+				cd.clickHouseOrdersBookCount = 0
+				cd.clickHouseOrdersBook = nil
 			}
 		}
 	}
