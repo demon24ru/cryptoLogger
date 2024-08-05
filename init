@@ -1,0 +1,9 @@
+#!/bin/bash
+
+for i in {0..15}
+do
+  ETH="/cdnf/cryptologger$i.log"
+  echo -n > $ETH
+  chmod 777 $ETH
+  chown sadmin $ETH
+done
