@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -571,34 +570,14 @@ func (k *kucoin) readWs(ctx context.Context) error {
 
 						d := wr.Data.(map[string]interface{})
 						dd := d["changes"].(map[string]interface{})
-						bids := reflect.ValueOf(dd["bids"])
-						asks := reflect.ValueOf(dd["asks"])
 
-						badBid := false
-						switch bids.Len() {
-						case 0:
-							badBid = true
-						case 1:
-							v := reflect.ValueOf(reflect.ValueOf(bids.Index(0).Interface()).Index(0).Interface()).Interface().(string)
-							if v == "0" {
-								badBid = true
-							}
+						wr.Data = dd["bids"]
+						wr.dataAsk, err = jsoniter.MarshalToString(dd["asks"])
+						if err != nil {
+							logErrStack(err)
+							return err
 						}
 
-						badAsk := false
-						switch asks.Len() {
-						case 0:
-							badAsk = true
-						case 1:
-							v := reflect.ValueOf(reflect.ValueOf(asks.Index(0).Interface()).Index(0).Interface()).Interface().(string)
-							if v == "0" {
-								badAsk = true
-							}
-						}
-
-						if badBid && badAsk {
-							continue
-						}
 					case "ordersbook":
 						ob := wr.Data.(map[string]interface{})
 						asks := ob["asks"].([]interface{})
@@ -611,13 +590,11 @@ func (k *kucoin) readWs(ctx context.Context) error {
 						}
 					}
 
-					var data string
-					data, err = jsoniter.MarshalToString(wr.Data)
+					wr.data, err = jsoniter.MarshalToString(wr.Data)
 					if err != nil {
 						logErrStack(err)
 						return err
 					}
-					wr.data = data
 
 					err := k.processWs(ctx, &wr, &cd)
 					if err != nil {
@@ -713,7 +690,8 @@ func (k *kucoin) processWs(ctx context.Context, wr *respKucoin, cd *commitData) 
 		level2 := storage.Level2{}
 		level2.ExchangeName = "kucoin"
 		level2.MktCommitName = strings.ReplaceAll(wr.mktCommitName, "-", "")
-		level2.Data = wr.data
+		level2.Bids = wr.data
+		level2.Asks = wr.dataAsk
 		level2.Timestamp = time.Now().UTC()
 
 		key := cfgLookupKey{market: wr.mktCommitName, channel: "level2"}
@@ -748,7 +726,6 @@ func (k *kucoin) processWs(ctx context.Context, wr *respKucoin, cd *commitData) 
 		ordersbook := storage.OrdersBook{}
 		ordersbook.ExchangeName = "kucoin"
 		ordersbook.MktCommitName = strings.ReplaceAll(wr.mktCommitName, "-", "")
-		ordersbook.Sequence = ""
 		ordersbook.Bids = wr.data
 		ordersbook.Asks = wr.dataAsk
 		ordersbook.Timestamp = time.Now().UTC()
@@ -838,7 +815,6 @@ func (k *kucoin) processREST(ctx context.Context, mktCommitName string, channel 
 
 			ordersbook := storage.OrdersBook{
 				MktCommitName: strings.ReplaceAll(mktCommitName, "-", ""),
-				Sequence:      orbk.Sequence,
 				Bids:          bids,
 				Asks:          asks,
 				Timestamp:     time.UnixMilli(orbk.Time).UTC(),

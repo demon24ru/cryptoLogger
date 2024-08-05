@@ -29,7 +29,8 @@ type Level2 struct {
 	ExchangeName  string
 	MktCommitName string
 	Timestamp     time.Time
-	Data          string
+	Bids          string
+	Asks          string
 }
 
 // OrdersBook market Order book represents from exchange
@@ -37,7 +38,6 @@ type Level2 struct {
 type OrdersBook struct {
 	ExchangeName  string
 	MktCommitName string
-	Sequence      string
 	Timestamp     time.Time
 	Bids          string
 	Asks          string

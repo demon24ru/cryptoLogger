@@ -598,7 +598,6 @@ func (b *binanceFutures) processWs(ctx context.Context, wr *wsRespBinance, cd *c
 		ordersbook := storage.OrdersBook{}
 		ordersbook.ExchangeName = "binance"
 		ordersbook.MktCommitName = wr.mktCommitName + "F"
-		ordersbook.Sequence = ""
 		ordersbook.Bids = wr.data
 		ordersbook.Asks = wr.dataAsk
 		ordersbook.Timestamp = time.Now().UTC()

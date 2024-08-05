@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -576,35 +575,31 @@ func (k *kucoinFutures) readWs(ctx context.Context) error {
 				case "level2":
 
 					d := wr.Data.(map[string]interface{})
-					dd := d["change"].(map[string]interface{})
-					bids := reflect.ValueOf(dd["bids"])
-					asks := reflect.ValueOf(dd["asks"])
-
-					badBid := false
-					switch bids.Len() {
-					case 0:
-						badBid = true
-					case 1:
-						v := reflect.ValueOf(reflect.ValueOf(bids.Index(0).Interface()).Index(0).Interface()).Interface().(string)
-						if v == "0" {
-							badBid = true
-						}
-					}
-
-					badAsk := false
-					switch asks.Len() {
-					case 0:
-						badAsk = true
-					case 1:
-						v := reflect.ValueOf(reflect.ValueOf(asks.Index(0).Interface()).Index(0).Interface()).Interface().(string)
-						if v == "0" {
-							badAsk = true
-						}
-					}
-
-					if badBid && badAsk {
+					dd := d["change"].(string)
+					ss := strings.Split(dd, ",")
+					if len(ss) < 3 {
 						continue
 					}
+
+					switch ss[1] {
+					case "sell":
+						// bid
+						wr.Data = []interface{}{}
+						// ask
+						wr.dataAsk = "[[\"" + ss[0] + "\"," + ss[2] + "]]"
+					case "buy":
+						// bid
+						dt := make([][]interface{}, 1)
+						dt[0] = make([]interface{}, 2)
+						dt[0][0] = ss[0]
+						dt[0][1], _ = strconv.ParseInt(ss[2], 10, 32)
+						wr.Data = dt
+						// ask
+						wr.dataAsk = "[]"
+					default:
+						continue
+					}
+
 				case "ordersbook":
 					ob := wr.Data.(map[string]interface{})
 					asks := ob["asks"].([]interface{})
@@ -719,7 +714,8 @@ func (k *kucoinFutures) processWs(ctx context.Context, wr *respkucoinFutures, cd
 		level2 := storage.Level2{}
 		level2.ExchangeName = "kucoin"
 		level2.MktCommitName = wr.mktCommitName[:len(wr.mktCommitName)-1] + "F"
-		level2.Data = wr.data
+		level2.Bids = wr.data
+		level2.Asks = wr.dataAsk
 		level2.Timestamp = time.Now().UTC()
 
 		key := cfgLookupKey{market: wr.mktCommitName, channel: "level2"}
@@ -754,7 +750,6 @@ func (k *kucoinFutures) processWs(ctx context.Context, wr *respkucoinFutures, cd
 		ordersbook := storage.OrdersBook{}
 		ordersbook.ExchangeName = "kucoin"
 		ordersbook.MktCommitName = wr.mktCommitName[:len(wr.mktCommitName)-1] + "F"
-		ordersbook.Sequence = ""
 		ordersbook.Bids = wr.data
 		ordersbook.Asks = wr.dataAsk
 		ordersbook.Timestamp = time.Now().UTC()

@@ -664,7 +664,6 @@ func (b *bybit) processWs(ctx context.Context, wr *wsRespByBit, cd *commitData) 
 		ordersbook := storage.OrdersBook{}
 		ordersbook.ExchangeName = "bybit"
 		ordersbook.MktCommitName = wr.mktCommitName
-		ordersbook.Sequence = ""
 		ordersbook.Bids = wr.data
 		ordersbook.Asks = wr.dataAsk
 		ordersbook.Timestamp = time.Now().UTC()

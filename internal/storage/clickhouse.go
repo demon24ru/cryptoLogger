@@ -127,7 +127,7 @@ func (c *ClickHouse) CommitLevel2(appCtx context.Context, data []Level2) error {
 	if err != nil {
 		return err
 	}
-	stmt, err := tx.Prepare("INSERT INTO level2 (exchange, market, data, timestamp) VALUES (?, ?, ?, ?)")
+	stmt, err := tx.Prepare("INSERT INTO level2 (exchange, market, bids, asks, timestamp) VALUES (?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ func (c *ClickHouse) CommitLevel2(appCtx context.Context, data []Level2) error {
 
 	for i := range data {
 		level2 := data[i]
-		_, err := stmt.Exec(level2.ExchangeName, level2.MktCommitName, level2.Data, level2.Timestamp.Format(clickHouseTimestampMicroSec))
+		_, err := stmt.Exec(level2.ExchangeName, level2.MktCommitName, level2.Bids, level2.Asks, level2.Timestamp.Format(clickHouseTimestampMicroSec))
 		if err != nil {
 			return err
 		}
@@ -152,7 +152,7 @@ func (c *ClickHouse) CommitOrdersBook(appCtx context.Context, data []OrdersBook)
 	if err != nil {
 		return err
 	}
-	stmt, err := tx.Prepare("INSERT INTO ordersbook (exchange, market, sequence, bids, asks, timestamp) VALUES (?, ?, ?, ?, ?, ?)")
+	stmt, err := tx.Prepare("INSERT INTO ordersbook (exchange, market, bids, asks, timestamp) VALUES (?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -160,7 +160,7 @@ func (c *ClickHouse) CommitOrdersBook(appCtx context.Context, data []OrdersBook)
 
 	for i := range data {
 		ordersBook := data[i]
-		_, err := stmt.Exec(ordersBook.ExchangeName, ordersBook.MktCommitName, ordersBook.Sequence, ordersBook.Bids, ordersBook.Asks, ordersBook.Timestamp.Format(clickHouseTimestampMicroSec))
+		_, err := stmt.Exec(ordersBook.ExchangeName, ordersBook.MktCommitName, ordersBook.Bids, ordersBook.Asks, ordersBook.Timestamp.Format(clickHouseTimestampMicroSec))
 		if err != nil {
 			return err
 		}
