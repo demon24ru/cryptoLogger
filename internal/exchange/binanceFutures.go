@@ -72,9 +72,11 @@ type binanceFutures struct {
 	wsTerTickers            chan []storage.Ticker
 	wsTerTrades             chan []storage.Trade
 	wsTerOrdersBooks        chan []storage.OrdersBook
+	wsTerLevel2             chan []storage.Level2
 	wsClickHouseTickers     chan []storage.Ticker
 	wsClickHouseTrades      chan []storage.Trade
 	wsClickHouseOrdersBooks chan []storage.OrdersBook
+	wsClickHouseLevel2      chan []storage.Level2
 }
 
 type wsRespBestPricesBinanceFutures struct {
@@ -91,6 +93,12 @@ type wsRespTradeBinanceFutures struct {
 	Qty        string `json:"q"`
 	TradePrice string `json:"p"`
 	TradeTime  int64  `json:"T"`
+}
+
+type wsRespLevel2BinanceFutures struct {
+	Symbol string     `json:"s"`
+	Bids   [][]string `json:"b"`
+	Asks   [][]string `json:"a"`
 }
 
 type wsRespLevelBookBinanceFutures struct {
@@ -154,6 +162,9 @@ func newBinanceFutures(appCtx context.Context, markets []config.Market, connCfg 
 						binanceErrGroup.Go(func() error {
 							return WsOrdersBookToStorage(ctx, b.ter, b.wsTerOrdersBooks)
 						})
+						binanceErrGroup.Go(func() error {
+							return WsLevel2ToStorage(ctx, b.ter, b.wsTerLevel2)
+						})
 					}
 
 					if b.clickhouse != nil {
@@ -165,6 +176,9 @@ func newBinanceFutures(appCtx context.Context, markets []config.Market, connCfg 
 						})
 						binanceErrGroup.Go(func() error {
 							return WsOrdersBookToStorage(ctx, b.clickhouse, b.wsClickHouseOrdersBooks)
+						})
+						binanceErrGroup.Go(func() error {
+							return WsLevel2ToStorage(ctx, b.clickhouse, b.wsClickHouseLevel2)
 						})
 					}
 
@@ -248,6 +262,7 @@ func (b *binanceFutures) cfgLookup(markets []config.Market) error {
 						b.wsTerTickers = make(chan []storage.Ticker, 1)
 						b.wsTerTrades = make(chan []storage.Trade, 1)
 						b.wsTerOrdersBooks = make(chan []storage.OrdersBook, 1)
+						b.wsTerLevel2 = make(chan []storage.Level2, 1)
 					}
 				case "clickhouse":
 					val.clickHouseStr = true
@@ -256,6 +271,7 @@ func (b *binanceFutures) cfgLookup(markets []config.Market) error {
 						b.wsClickHouseTickers = make(chan []storage.Ticker, 1)
 						b.wsClickHouseTrades = make(chan []storage.Trade, 1)
 						b.wsClickHouseOrdersBooks = make(chan []storage.OrdersBook, 1)
+						b.wsClickHouseLevel2 = make(chan []storage.Level2, 1)
 					}
 				}
 			}
@@ -307,6 +323,9 @@ func (b *binanceFutures) subWsChannel(market string, channel string, id int) err
 	if channel == "ordersbook" {
 		channel = "depth20@100ms"
 	}
+	//if channel == "level2" {
+	//	channel = "depth@100ms"
+	//}
 	channel = strings.ToLower(market) + "@" + channel
 	sub := wsSubBinance{
 		Method: "SUBSCRIBE",
@@ -358,9 +377,11 @@ func (b *binanceFutures) readWs(ctx context.Context) error {
 		terTickers:           make([]storage.Ticker, 0, b.connCfg.Terminal.TickerCommitBuf),
 		terTrades:            make([]storage.Trade, 0, b.connCfg.Terminal.TradeCommitBuf),
 		terOrdersBooks:       make([]storage.OrdersBook, 0, b.connCfg.Terminal.OrdersBookCommitBuf),
+		terLevel2:            make([]storage.Level2, 0, b.connCfg.Terminal.Level2CommitBuf),
 		clickHouseTickers:    make([]storage.Ticker, 0, b.connCfg.ClickHouse.TickerCommitBuf),
 		clickHouseTrades:     make([]storage.Trade, 0, b.connCfg.ClickHouse.TradeCommitBuf),
 		clickHouseOrdersBook: make([]storage.OrdersBook, 0, b.connCfg.ClickHouse.OrdersBookCommitBuf),
+		clickHouseLevel2:     make([]storage.Level2, 0, b.connCfg.ClickHouse.Level2CommitBuf),
 	}
 
 	storeTick := make(map[string]storeTickerData)
@@ -417,10 +438,12 @@ func (b *binanceFutures) readWs(ctx context.Context) error {
 				wr.Event = "trade"
 			case "depthUpdate":
 				wr.Event = "ordersbook"
+				//case "depthUpdate":
+				//	wr.Event = "level2"
 			}
 
 			// Consider frame only in configured interval, otherwise ignore it.
-			if wr.Event == "ticker" || wr.Event == "trade" || wr.Event == "ordersbook" {
+			if wr.Event == "ticker" || wr.Event == "trade" || wr.Event == "ordersbook" || wr.Event == "level2" {
 
 				key := cfgLookupKey{market: wr.Symbol, channel: wr.Event}
 				val := cfgLookup[key]
@@ -487,6 +510,24 @@ func (b *binanceFutures) readWs(ctx context.Context) error {
 					}
 				case "ordersbook":
 					wrt := wsRespLevelBookBinanceFutures{}
+					err = jsoniter.Unmarshal(frame, &wrt)
+					if err != nil {
+						log.Debug().Str("exchange", "binanceFutures").Str("func", "readWs").Msg(string(frame))
+						logErrStack(err)
+						return err
+					}
+					wr.data, err = jsoniter.MarshalToString(wrt.Bids)
+					if err != nil {
+						logErrStack(err)
+						return err
+					}
+					wr.dataAsk, err = jsoniter.MarshalToString(wrt.Asks)
+					if err != nil {
+						logErrStack(err)
+						return err
+					}
+				case "level2":
+					wrt := wsRespLevel2BinanceFutures{}
 					err = jsoniter.Unmarshal(frame, &wrt)
 					if err != nil {
 						log.Debug().Str("exchange", "binanceFutures").Str("func", "readWs").Msg(string(frame))
@@ -628,6 +669,42 @@ func (b *binanceFutures) processWs(ctx context.Context, wr *wsRespBinance, cd *c
 				}
 				cd.clickHouseOrdersBookCount = 0
 				cd.clickHouseOrdersBook = nil
+			}
+		}
+	case "level2":
+		level2 := storage.Level2{}
+		level2.ExchangeName = "binance"
+		level2.MktCommitName = wr.mktCommitName + "F"
+		level2.Bids = wr.data
+		level2.Asks = wr.dataAsk
+		level2.Timestamp = time.Now().UTC()
+
+		key := cfgLookupKey{market: wr.mktCommitName, channel: "level2"}
+		val := b.cfgMap[key]
+		if val.terStr {
+			cd.terLevel2Count++
+			cd.terLevel2 = append(cd.terLevel2, level2)
+			if cd.terLevel2Count == b.connCfg.Terminal.Level2CommitBuf {
+				select {
+				case b.wsTerLevel2 <- cd.terLevel2:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+				cd.terLevel2Count = 0
+				cd.terLevel2 = nil
+			}
+		}
+		if val.clickHouseStr {
+			cd.clickHouseLevel2Count++
+			cd.clickHouseLevel2 = append(cd.clickHouseLevel2, level2)
+			if cd.clickHouseLevel2Count == b.connCfg.ClickHouse.Level2CommitBuf {
+				select {
+				case b.wsClickHouseLevel2 <- cd.clickHouseLevel2:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+				cd.clickHouseLevel2Count = 0
+				cd.clickHouseLevel2 = nil
 			}
 		}
 	}
