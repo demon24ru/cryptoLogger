@@ -1143,7 +1143,7 @@
     <!-- Settings to fine tune MergeTree tables. See documentation in source code, in MergeTreeSettings.h -->
 
     <merge_tree>
-        <max_suspicious_broken_parts>50</max_suspicious_broken_parts>
+        <max_suspicious_broken_parts>500</max_suspicious_broken_parts>
     </merge_tree>
 
 
