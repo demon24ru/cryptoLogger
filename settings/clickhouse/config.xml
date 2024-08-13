@@ -378,6 +378,26 @@
          - max_data_part_size_bytes is ignored
          - you must have exactly one volume in that policy
     -->
+    <storage_configuration>
+        <disks>
+            <cold_storage>
+                <path>/var/lib/clickhouse_cold/</path>
+            </cold_storage>
+        </disks>
+        <policies>
+            <moving_from_ssd_to_hdd>
+                <volumes>
+                    <hot>
+                        <disk>default</disk>
+                    </hot>
+                    <cold>
+                        <disk>cold_storage</disk>
+                    </cold>
+                </volumes>
+                <move_factor>0.2</move_factor>
+            </moving_from_ssd_to_hdd>
+        </policies>
+    </storage_configuration>
     <!-- <tmp_policy>tmp</tmp_policy> -->
 
     <!-- Directory with user provided files that are accessible by 'file' table function. -->
@@ -1143,7 +1163,7 @@
     <!-- Settings to fine tune MergeTree tables. See documentation in source code, in MergeTreeSettings.h -->
 
     <merge_tree>
-        <max_suspicious_broken_parts>500</max_suspicious_broken_parts>
+        <max_suspicious_broken_parts>50</max_suspicious_broken_parts>
     </merge_tree>
 
 

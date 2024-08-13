@@ -7,7 +7,9 @@ CREATE TABLE ticker
     `timestamp` DateTime64(3, 'UTC')
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
-ORDER BY (exchange, market, timestamp);
+ORDER BY (exchange, market, timestamp)
+TTL toYYYYMMDD(timestamp) + INTERVAL 10 DAY TO DISK 'cold_storage'
+SETTINGS storage_policy = 'moving_from_ssd_to_hdd';
 
 CREATE TABLE trade
 (
@@ -17,7 +19,9 @@ CREATE TABLE trade
     `timestamp` DateTime64(3, 'UTC')
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
-ORDER BY (exchange, market, timestamp);
+ORDER BY (exchange, market, timestamp)
+TTL toYYYYMMDD(timestamp) + INTERVAL 10 DAY TO DISK 'cold_storage'
+SETTINGS storage_policy = 'moving_from_ssd_to_hdd';
 
 CREATE TABLE level2
 (
@@ -28,7 +32,9 @@ CREATE TABLE level2
     `timestamp` DateTime64(9, 'UTC')
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
-ORDER BY (exchange, market, timestamp);
+ORDER BY (exchange, market, timestamp)
+TTL toYYYYMMDD(timestamp) + INTERVAL 10 DAY TO DISK 'cold_storage'
+SETTINGS storage_policy = 'moving_from_ssd_to_hdd';
 
 CREATE TABLE ordersbook
 (
@@ -39,4 +45,6 @@ CREATE TABLE ordersbook
     `timestamp` DateTime64(9, 'UTC')
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
-ORDER BY (exchange, market, timestamp);
+ORDER BY (exchange, market, timestamp)
+TTL toYYYYMMDD(timestamp) + INTERVAL 10 DAY TO DISK 'cold_storage'
+SETTINGS storage_policy = 'moving_from_ssd_to_hdd';
