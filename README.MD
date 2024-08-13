@@ -720,7 +720,7 @@ docker logs <ID>
 [Docker clickHouse](https://netpoint-dc.com/blog/zapuskaem-server-yandex-clickhouse-v-vide-docker-s-nastroikoi-dlya-obrabotki-bolshogo-obema-dannih/)
 
 ```shell
-docker run -d --name clickhouse_1 --ulimit nofile=262144:262144 -v /cdnf/db/log:/var/log/clickhouse-server -v /cdnf/db/data:/var/lib/clickhouse yandex/clickhouse-server
+docker run -d --name clickhouse_1 --ulimit nofile=262144:262144 -v /cdnf/db/log:/var/log/clickhouse-server -v /cdnf/db/data:/var/lib/clickhouse -v /cdnc:/var/lib/clickhouse_cold -v ./settings/clickhouse/config.xml:/etc/clickhouse-server/config.xml yandex/clickhouse-server
 docker run -it --rm --link clickhouse_1:clickhouse-server yandex/clickhouse-client --host clickhouse-server
 ```
 
