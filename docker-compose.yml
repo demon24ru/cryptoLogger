@@ -235,7 +235,7 @@ services:
     volumes:
       - /cdnf/db/log:/var/log/clickhouse-server
       - /cdnf/db/data:/var/lib/clickhouse
-      - /cdnc:/var/lib/clickhouse_cold
+      - /cdnc:/home/cold_storage
       - ./settings/clickhouse/users.xml:/etc/clickhouse-server/users.xml
       - ./settings/clickhouse/config.xml:/etc/clickhouse-server/config.xml
     ports:

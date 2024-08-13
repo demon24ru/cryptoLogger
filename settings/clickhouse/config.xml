@@ -381,7 +381,7 @@
     <storage_configuration>
         <disks>
             <cold_storage>
-                <path>/var/lib/clickhouse_cold/</path>
+                <path>/home/cold_storage/</path>
             </cold_storage>
         </disks>
         <policies>
