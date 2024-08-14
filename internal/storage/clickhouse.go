@@ -48,8 +48,8 @@ func InitClickHouse(cfg *config.ClickHouse) (*ClickHouse, error) {
 				}
 			}
 		}
-		db, err := sql.Open("clickhouse",
-			dataSourceName.String())
+		dataSourceName.WriteString("&custom_http_params=async_insert=1,async_insert_busy_timeout_max_ms=1000,async_insert_max_data_size=0,wait_for_async_insert=0")
+		db, err := sql.Open("clickhouse", dataSourceName.String())
 		if err != nil {
 			return nil, err
 		}
