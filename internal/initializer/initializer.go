@@ -244,6 +244,7 @@ func Start(mainCtx context.Context, cfg *config.Config) error {
 			//	})
 		}
 	}
+	log.Error().Msg("start app")
 
 	err = appErrGroup.Wait()
 	if err != nil {
