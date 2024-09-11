@@ -27,9 +27,14 @@ func StartKucoinFutures(appCtx context.Context, markets []config.Market, retry *
 	// Retry counter will be reset back to zero if the elapsed time since the last retry is greater than the configured one.
 	var retryCount int
 	lastRetryTime := time.Now()
+	var mks []string
+
+	for _, v := range markets {
+		mks = append(mks, v.ID)
+	}
 
 	for {
-		log.Error().Str("exchange", "kucoinFutures").Msg("start")
+		log.Error().Str("exchange", "kucoinFutures").Msg(fmt.Sprintf("start %s", strings.Join(mks[:], ",")))
 		err := newkucoinFutures(appCtx, markets, connCfg)
 		if err != nil {
 			log.Error().Err(err).Str("exchange", "kucoinFutures").Msg("error occurred")
@@ -48,7 +53,7 @@ func StartKucoinFutures(appCtx context.Context, markets []config.Market, retry *
 				return err
 			}
 
-			log.Error().Str("exchange", "kucoinFutures").Int("retry", retryCount).Msg(fmt.Sprintf("retrying functions in %d seconds", retry.GapSec))
+			log.Error().Str("exchange", "kucoinFutures").Int("retry", retryCount).Msg(fmt.Sprintf("retrying functions in %d seconds %s", retry.GapSec, strings.Join(mks[:], ",")))
 			tick := time.NewTicker(time.Duration(retry.GapSec) * time.Second)
 			select {
 			case <-tick.C:
