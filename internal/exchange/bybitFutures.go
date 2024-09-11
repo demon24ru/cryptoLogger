@@ -29,6 +29,7 @@ func StartByBitFutures(appCtx context.Context, markets []config.Market, retry *c
 	lastRetryTime := time.Now()
 
 	for {
+		log.Error().Str("exchange", "bybitFutures").Msg("start")
 		err := newByBitFutures(appCtx, markets, connCfg)
 		if err != nil {
 			log.Error().Err(err).Str("exchange", "bybitFutures").Msg("error occurred")

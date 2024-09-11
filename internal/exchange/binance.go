@@ -28,6 +28,7 @@ func StartBinance(appCtx context.Context, markets []config.Market, retry *config
 	lastRetryTime := time.Now()
 
 	for {
+		log.Error().Str("exchange", "binance").Msg("start")
 		err := newBinance(appCtx, markets, connCfg)
 		if err != nil {
 			log.Error().Err(err).Str("exchange", "binance").Msg("error occurred")

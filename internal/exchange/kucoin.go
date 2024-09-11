@@ -30,6 +30,7 @@ func StartKucoin(appCtx context.Context, markets []config.Market, retry *config.
 	lastRetryTime := time.Now()
 
 	for {
+		log.Error().Str("exchange", "kucoin").Msg("start")
 		err := newKucoin(appCtx, markets, connCfg)
 		if err != nil {
 			log.Error().Err(err).Str("exchange", "kucoin").Msg("error occurred")
