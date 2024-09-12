@@ -40,7 +40,10 @@ func Start(mainCtx context.Context, cfg *config.Config) error {
 			return fmt.Errorf("not able to create log file: %v", cfg.Log.FilePath+"_"+strconv.Itoa(int(time.Now().Unix()))+".log")
 		}
 	}
-	defer logFile.Close()
+	defer func() {
+		log.Error().Msg("exiting the app")
+		_ = logFile.Close()
+	}()
 
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 	switch cfg.Log.Level {
@@ -248,7 +251,6 @@ func Start(mainCtx context.Context, cfg *config.Config) error {
 
 	err = appErrGroup.Wait()
 	if err != nil {
-		log.Error().Msg("exiting the app")
 		return err
 	}
 	return nil
