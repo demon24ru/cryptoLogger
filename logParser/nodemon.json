@@ -1,0 +1,6 @@
+{
+  "watch": ["**/*.ts", ".env"],
+  "ext": "ts,js,.env",
+  "ignore": ["**/*.test.ts"],
+  "exec": "ts-node -r tsconfig-paths/register app.ts"
+}

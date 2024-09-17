@@ -245,6 +245,40 @@ services:
     networks:
       intranet:
         ipv4_address: 172.23.0.2
+  logparser:
+    hostname: logparser
+    build:
+      context: ./logParser
+      dockerfile: ./Dockerfile
+    container_name: logparser
+    env_file: ./settings/logparser.env
+    ports:
+      - "8100:4000"
+    volumes:
+      - ./logParser:/home/app
+      - /home/app/node_modules
+      - /home/app/build
+      - /cdnf/cryptologger0.log:/home/app/cryptologger0.log
+      - /cdnf/cryptologger1.log:/home/app/cryptologger1.log
+      - /cdnf/cryptologger2.log:/home/app/cryptologger2.log
+      - /cdnf/cryptologger3.log:/home/app/cryptologger3.log
+      - /cdnf/cryptologger4.log:/home/app/cryptologger4.log
+      - /cdnf/cryptologger5.log:/home/app/cryptologger5.log
+      - /cdnf/cryptologger6.log:/home/app/cryptologger6.log
+      - /cdnf/cryptologger7.log:/home/app/cryptologger7.log
+      - /cdnf/cryptologger8.log:/home/app/cryptologger8.log
+      - /cdnf/cryptologger9.log:/home/app/cryptologger9.log
+      - /cdnf/cryptologger10.log:/home/app/cryptologger10.log
+      - /cdnf/cryptologger11.log:/home/app/cryptologger11.log
+      - /cdnf/cryptologger12.log:/home/app/cryptologger12.log
+      - /cdnf/cryptologger13.log:/home/app/cryptologger13.log
+      - /cdnf/cryptologger14.log:/home/app/cryptologger14.log
+      - /cdnf/cryptologger15.log:/home/app/cryptologger15.log
+    working_dir: /home/app
+    restart: always
+    networks:
+      intranet:
+        ipv4_address: 172.23.0.100
 
 networks:
   intranet:
