@@ -7,9 +7,12 @@ import { errorMiddleware } from './middleware/errors';
 import routes from './routes';
 import Logger from './services/logger';
 import { notFoundRouts } from './middleware/response';
+import {parseMarkets} from './store';
 
 
 const logger: Logger = new Logger('App');
+
+parseMarkets().then()
 
 const app = express();
 
