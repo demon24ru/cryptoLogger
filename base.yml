@@ -11,9 +11,57 @@ services:
     volumes:
       - /cdnf/db/log:/var/log/clickhouse-server
       - /cdnf/db/data:/var/lib/clickhouse
+      - /cdnc:/home/cold_storage
       - ./settings/clickhouse/users.xml:/etc/clickhouse-server/users.xml
       - ./settings/clickhouse/config.xml:/etc/clickhouse-server/config.xml
     ports:
       - "8123:8123"
       - "9000:9000"
       - "9004:9004"
+  logparser:
+    hostname: logparser
+    build:
+      context: ./logParser
+      dockerfile: ./Dockerfile
+    container_name: logparser
+    env_file: ./settings/logparser.env
+    ports:
+      - "8100:4000"
+    volumes:
+      - ./logParser:/home/app
+      - /home/app/node_modules
+      - /home/app/build
+      - /cdnf/cryptologger0.log:/home/app/cryptologger0.log
+      - /cdnf/cryptologger1.log:/home/app/cryptologger1.log
+      - /cdnf/cryptologger2.log:/home/app/cryptologger2.log
+      - /cdnf/cryptologger3.log:/home/app/cryptologger3.log
+      - /cdnf/cryptologger4.log:/home/app/cryptologger4.log
+      - /cdnf/cryptologger5.log:/home/app/cryptologger5.log
+      - /cdnf/cryptologger6.log:/home/app/cryptologger6.log
+      - /cdnf/cryptologger7.log:/home/app/cryptologger7.log
+      - /cdnf/cryptologger8.log:/home/app/cryptologger8.log
+      - /cdnf/cryptologger9.log:/home/app/cryptologger9.log
+      - /cdnf/cryptologger10.log:/home/app/cryptologger10.log
+      - /cdnf/cryptologger11.log:/home/app/cryptologger11.log
+      - /cdnf/cryptologger12.log:/home/app/cryptologger12.log
+      - /cdnf/cryptologger13.log:/home/app/cryptologger13.log
+      - /cdnf/cryptologger14.log:/home/app/cryptologger14.log
+      - /cdnf/cryptologger15.log:/home/app/cryptologger15.log
+      - ./config0.json:/home/app/configs/config0.json
+      - ./config1.json:/home/app/configs/config1.json
+      - ./config2.json:/home/app/configs/config2.json
+      - ./config3.json:/home/app/configs/config3.json
+      - ./config4.json:/home/app/configs/config4.json
+      - ./config5.json:/home/app/configs/config5.json
+      - ./config6.json:/home/app/configs/config6.json
+      - ./config7.json:/home/app/configs/config7.json
+      - ./config8.json:/home/app/configs/config8.json
+      - ./config9.json:/home/app/configs/config9.json
+      - ./config10.json:/home/app/configs/config10.json
+      - ./config11.json:/home/app/configs/config11.json
+      - ./config12.json:/home/app/configs/config12.json
+      - ./config13.json:/home/app/configs/config13.json
+      - ./config14.json:/home/app/configs/config14.json
+      - ./config15.json:/home/app/configs/config15.json
+    working_dir: /home/app
+    restart: always
