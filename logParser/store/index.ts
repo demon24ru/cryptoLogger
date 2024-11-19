@@ -109,7 +109,7 @@ export async function parseMarkets(): Promise<void> {
                             }
 
                             markets.bybit[market.id] = {
-                                priceIncrement: Number(result.result.list[0].priceFilter.tickSize),
+                                priceIncrement: Number(result.result.list[0].priceFilter?.tickSize),
                                 multiplier: 1,
                                 config
                             }
@@ -137,7 +137,7 @@ export async function parseMarkets(): Promise<void> {
                             }
 
                             markets.bybit[`${market.id}F`] = {
-                                priceIncrement: Number(result.result.list[0].priceFilter.tickSize),
+                                priceIncrement: Number(result.result.list[0].priceFilter?.tickSize),
                                 multiplier: 1,
                                 config
                             }
