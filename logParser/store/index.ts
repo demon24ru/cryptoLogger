@@ -29,6 +29,7 @@ export async function parseMarkets(): Promise<void> {
             const dat = JSON.parse(fs.readFileSync('./configs/' + file, 'utf8').toString());
         } catch (e) {
             logger.error(`Load file ${file}`, e.message, e.stack)
+            continue
         }
         const config = file.match(/\d{1,}/)[0]
         for (const d of dat.exchanges) {
