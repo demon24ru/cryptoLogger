@@ -25,8 +25,9 @@ export async function parseMarkets(): Promise<void> {
         .filter((file) => (file.indexOf('.') !== 0) && (file.slice(-5) === '.json'))
 
     for (const file of files) {
+        let dat
         try {
-            const dat = JSON.parse(fs.readFileSync('./configs/' + file, 'utf8').toString());
+            dat = JSON.parse(fs.readFileSync('./configs/' + file, 'utf8').toString());
         } catch (e) {
             logger.error(`Load file ${file}`, e.message, e.stack)
             continue
