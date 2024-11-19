@@ -41,12 +41,6 @@ services:
       - /cdnf/cryptologger7.log:/home/app/cryptologger7.log
       - /cdnf/cryptologger8.log:/home/app/cryptologger8.log
       - /cdnf/cryptologger9.log:/home/app/cryptologger9.log
-      - /cdnf/cryptologger10.log:/home/app/cryptologger10.log
-      - /cdnf/cryptologger11.log:/home/app/cryptologger11.log
-      - /cdnf/cryptologger12.log:/home/app/cryptologger12.log
-      - /cdnf/cryptologger13.log:/home/app/cryptologger13.log
-      - /cdnf/cryptologger14.log:/home/app/cryptologger14.log
-      - /cdnf/cryptologger15.log:/home/app/cryptologger15.log
       - ./config0.json:/home/app/configs/config0.json
       - ./config1.json:/home/app/configs/config1.json
       - ./config2.json:/home/app/configs/config2.json
@@ -57,11 +51,5 @@ services:
       - ./config7.json:/home/app/configs/config7.json
       - ./config8.json:/home/app/configs/config8.json
       - ./config9.json:/home/app/configs/config9.json
-      - ./config10.json:/home/app/configs/config10.json
-      - ./config11.json:/home/app/configs/config11.json
-      - ./config12.json:/home/app/configs/config12.json
-      - ./config13.json:/home/app/configs/config13.json
-      - ./config14.json:/home/app/configs/config14.json
-      - ./config15.json:/home/app/configs/config15.json
     working_dir: /home/app
     restart: always
