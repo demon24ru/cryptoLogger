@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"sync"
 
 	"strings"
 	"time"
@@ -84,6 +85,9 @@ type bybitFutures struct {
 	wsClickHouseTrades      chan []storage.Trade
 	wsClickHouseLevel2      chan []storage.Level2
 	wsClickHouseOrdersBooks chan []storage.OrdersBook
+
+	cacheOBmx *sync.RWMutex
+	cacheOB   map[string]cacheOB
 }
 
 //type restRespByBit struct {
@@ -99,7 +103,11 @@ func newByBitFutures(appCtx context.Context, markets []config.Market, connCfg *c
 	// If any exchange function fails, force all the other functions to stop and return.
 	bybitErrGroup, ctx := errgroup.WithContext(appCtx)
 
-	b := bybitFutures{connCfg: connCfg}
+	b := bybitFutures{
+		connCfg:   connCfg,
+		cacheOBmx: &sync.RWMutex{},
+		cacheOB:   make(map[string]cacheOB),
+	}
 
 	err := b.cfgLookup(markets)
 	if err != nil {
@@ -116,6 +124,19 @@ func newByBitFutures(appCtx context.Context, markets []config.Market, connCfg *c
 		for _, info := range market.Info {
 			switch info.Connector {
 			case "websocket":
+				if info.Channel == "ordersbook" {
+					//b.cacheOB[market.ID] = cacheOB{
+					//	bids: make(map[string]string),
+					//	asks: make(map[string]string),
+					//}
+
+					func(market string) {
+						bybitErrGroup.Go(func() error {
+							return b.tickOB(ctx, market)
+						})
+					}(market.ID)
+				}
+
 				if wsCount == 0 {
 
 					err = b.connectWs(ctx)
@@ -360,6 +381,69 @@ func (b *bybitFutures) pingWs(ctx context.Context) error {
 	}
 }
 
+// tickOB sends regular ordersBook snapshot request to commit DB for every required seconds (~10% earlier to required seconds on a safer side).
+func (b *bybitFutures) tickOB(ctx context.Context, market string) error {
+
+	cd := commitData{
+		terTickers:           make([]storage.Ticker, 0, b.connCfg.Terminal.TickerCommitBuf),
+		terTrades:            make([]storage.Trade, 0, b.connCfg.Terminal.TradeCommitBuf),
+		terLevel2:            make([]storage.Level2, 0, b.connCfg.Terminal.Level2CommitBuf),
+		terOrdersBooks:       make([]storage.OrdersBook, 0, b.connCfg.Terminal.OrdersBookCommitBuf),
+		clickHouseTickers:    make([]storage.Ticker, 0, b.connCfg.ClickHouse.TickerCommitBuf),
+		clickHouseTrades:     make([]storage.Trade, 0, b.connCfg.ClickHouse.TradeCommitBuf),
+		clickHouseLevel2:     make([]storage.Level2, 0, b.connCfg.ClickHouse.Level2CommitBuf),
+		clickHouseOrdersBook: make([]storage.OrdersBook, 0, b.connCfg.ClickHouse.OrdersBookCommitBuf),
+	}
+
+	tick := time.NewTicker(time.Duration(15) * time.Second)
+	defer tick.Stop()
+	for {
+		select {
+		case <-tick.C:
+			wr := wsRespByBit{
+				Event:         "ordersbook",
+				Symbol:        market,
+				mktCommitName: market,
+			}
+			var (
+				err  error
+				bids [][]string
+				asks [][]string
+			)
+
+			b.cacheOBmx.Lock()
+			dat, ok := b.cacheOB[market]
+			if ok {
+				for k, v := range dat.bids {
+					bids = append(bids, []string{k, v})
+				}
+				for k, v := range dat.asks {
+					asks = append(asks, []string{k, v})
+				}
+			}
+			b.cacheOBmx.Unlock()
+
+			wr.data, err = jsoniter.MarshalToString(bids)
+			if err != nil {
+				logErrStack(err)
+				return err
+			}
+			wr.dataAsk, err = jsoniter.MarshalToString(asks)
+			if err != nil {
+				logErrStack(err)
+				return err
+			}
+
+			err = b.processWs(ctx, &wr, &cd)
+			if err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
 // readWs reads ticker / trade data from websocket channels.
 func (b *bybitFutures) readWs(ctx context.Context) error {
 
@@ -537,9 +621,45 @@ func (b *bybitFutures) readWs(ctx context.Context) error {
 						logErrStack(err)
 						return err
 					}
+
+					b.cacheOBmx.Lock()
 					if wrt.Type == "delta" {
 						wr.Event = "level2"
+
+						dat, ok := b.cacheOB[wr.mktCommitName]
+						if ok && len(dat.asks) > 0 {
+							for _, v := range wrt.Data.Bids {
+								if v[1] == "0" {
+									delete(b.cacheOB[wr.mktCommitName].bids, v[0])
+								} else {
+									b.cacheOB[wr.mktCommitName].bids[v[0]] = v[1]
+								}
+							}
+							for _, v := range wrt.Data.Asks {
+								if v[1] == "0" {
+									delete(b.cacheOB[wr.mktCommitName].asks, v[0])
+								} else {
+									b.cacheOB[wr.mktCommitName].asks[v[0]] = v[1]
+								}
+							}
+						}
+					} else {
+						_, ok := b.cacheOB[wr.mktCommitName]
+						if ok {
+							delete(b.cacheOB, wr.mktCommitName)
+						}
+						b.cacheOB[wr.mktCommitName] = cacheOB{
+							bids: make(map[string]string),
+							asks: make(map[string]string),
+						}
+						for _, v := range wrt.Data.Bids {
+							b.cacheOB[wr.mktCommitName].bids[v[0]] = v[1]
+						}
+						for _, v := range wrt.Data.Asks {
+							b.cacheOB[wr.mktCommitName].asks[v[0]] = v[1]
+						}
 					}
+					b.cacheOBmx.Unlock()
 
 					wr.data, err = jsoniter.MarshalToString(wrt.Data.Bids)
 					if err != nil {

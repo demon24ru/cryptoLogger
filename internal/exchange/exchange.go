@@ -70,6 +70,11 @@ type commitTrade struct {
 	Price string `json:"p"`
 }
 
+type cacheOB struct {
+	bids map[string]string
+	asks map[string]string
+}
+
 // WsTickersToStorage batch inserts input ticker data from websocket to specified storage.
 func WsTickersToStorage(ctx context.Context, str storage.Storage, tickers <-chan []storage.Ticker) error {
 	for {
