@@ -71,7 +71,7 @@ export async function logParser(req: Request, res: Response) {
             }
             const time: number = new Date(dat.time).getTime()
             if (dat.message === 'exiting the app') {
-                if (response[response.length-1].length === 1) {
+                if (response.length && response[response.length-1].length === 1) {
                     if ((time - timeStart) < minWorkTime) {
                         response.pop()
                     } else {
@@ -82,7 +82,7 @@ export async function logParser(req: Request, res: Response) {
             }
             // @ts-ignore
             if (k > 0 && dat.message === 'start app') {
-                if (response[response.length-1].length === 1) {
+                if (response.length && response[response.length-1].length === 1) {
                     if ((time - timeBeforeStart - timeStart) < minWorkTime) {
                         response.pop()
                     } else {
