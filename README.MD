@@ -701,19 +701,25 @@ chmod +x /usr/local/bin/docker-compose
 ## Start Docker compose
 
 ```shell
-# Запуск
+# Run docker
 docker-compose -f docker-compose.yml up -d --build
 
-# Останов
+# Stop docker
 docker-compose -f docker-compose.yml down
 
-# Удаление остановленных контейнеров
+# Stop and remove service
+docker-compose stop [SERVICE]
+docker-compose rm -f
+# Restart and recreate service
+docker-compose -f docker-compose.yml up -d --force-recreate --no-deps --build [SERVICE]
+
+# Removing stopped containers 
 docker system prune -a --volumes
 
-# Запущеные контейнеры их ID
+# Get started containers with ID
 docker ps -a
 
-# Логи контейнера по ID
+# Logs containers from ID
 docker logs <ID>
 ```
 
