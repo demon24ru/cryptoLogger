@@ -542,11 +542,11 @@ func (b *binance) readWs(ctx context.Context) error {
 					if wrt.Maker {
 						side = "sell"
 					}
-					wr.data, err = jsoniter.MarshalToString(commitTrade{
+					wr.data, err = jsoniter.MarshalToString([]commitTrade{{
 						Side:  side,
 						Size:  wrt.Qty,
 						Price: wrt.TradePrice,
-					})
+					}})
 					if err != nil {
 						logErrStack(err)
 						return err

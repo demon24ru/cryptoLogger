@@ -573,11 +573,11 @@ func (k *kucoinFutures) readWs(ctx context.Context) error {
 					Size := strconv.FormatFloat(trade["size"].(float64), 'f', 0, 64)
 					Price := trade["price"].(string)
 
-					wr.Data = commitTrade{
+					wr.Data = []commitTrade{{
 						Side:  strings.ToLower(Side),
 						Size:  Size,
 						Price: Price,
-					}
+					}}
 				case "level2":
 
 					d := wr.Data.(map[string]interface{})

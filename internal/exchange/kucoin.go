@@ -567,11 +567,11 @@ func (k *kucoin) readWs(ctx context.Context) error {
 						Size := trade["size"].(string)
 						Price := trade["price"].(string)
 
-						wr.Data = commitTrade{
+						wr.Data = []commitTrade{{
 							Side:  strings.ToLower(Side),
 							Size:  Size,
 							Price: Price,
-						}
+						}}
 					case "level2":
 
 						d := wr.Data.(map[string]interface{})
