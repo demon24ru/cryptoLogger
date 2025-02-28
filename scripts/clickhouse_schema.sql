@@ -8,7 +8,8 @@ CREATE TABLE ticker
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
 ORDER BY (exchange, market, timestamp)
-TTL toDateTime(timestamp, 'UTC') + INTERVAL 50 DAY TO DISK 'cold_storage'
+TTL toDateTime(timestamp, 'UTC') + INTERVAL 50 DAY TO DISK 'cold_storage',
+    toDateTime(timestamp, 'UTC') + INTERVAL 5 MONTH
 SETTINGS storage_policy = 'moving_from_ssd_to_hdd';
 
 CREATE TABLE trade
@@ -20,7 +21,8 @@ CREATE TABLE trade
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
 ORDER BY (exchange, market, timestamp)
-TTL toDateTime(timestamp, 'UTC') + INTERVAL 50 DAY TO DISK 'cold_storage'
+TTL toDateTime(timestamp, 'UTC') + INTERVAL 50 DAY TO DISK 'cold_storage',
+    toDateTime(timestamp, 'UTC') + INTERVAL 5 MONTH
 SETTINGS storage_policy = 'moving_from_ssd_to_hdd';
 
 CREATE TABLE level2
@@ -33,7 +35,8 @@ CREATE TABLE level2
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
 ORDER BY (exchange, market, timestamp)
-TTL toDateTime(timestamp, 'UTC') + INTERVAL 50 DAY TO DISK 'cold_storage'
+TTL toDateTime(timestamp, 'UTC') + INTERVAL 50 DAY TO DISK 'cold_storage',
+    toDateTime(timestamp, 'UTC') + INTERVAL 5 MONTH
 SETTINGS storage_policy = 'moving_from_ssd_to_hdd';
 
 CREATE TABLE ordersbook
@@ -46,5 +49,6 @@ CREATE TABLE ordersbook
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
 ORDER BY (exchange, market, timestamp)
-TTL toDateTime(timestamp, 'UTC') + INTERVAL 50 DAY TO DISK 'cold_storage'
+TTL toDateTime(timestamp, 'UTC') + INTERVAL 50 DAY TO DISK 'cold_storage',
+    toDateTime(timestamp, 'UTC') + INTERVAL 5 MONTH
 SETTINGS storage_policy = 'moving_from_ssd_to_hdd';
