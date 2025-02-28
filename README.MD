@@ -727,7 +727,7 @@ docker logs <ID>
 
 ```shell
 docker run -d --name clickhouse_1 --ulimit nofile=262144:262144 -v /cdnf/db/log:/var/log/clickhouse-server -v /cdnf/db/data:/var/lib/clickhouse -v /cdnc:/home/cold_storage -v $(realpath ./settings/clickhouse/config.xml):/etc/clickhouse-server/config.xml yandex/clickhouse-server
-docker run -it --rm --link clickhouse_1:clickhouse-server yandex/clickhouse-client --host clickhouse-server
+docker run -it --rm --link clickhouse_1:clickhouse-server yandex/clickhouse-client --host clickhouse-server --receive_timeout=360000 --alter_sync=2
 ```
 
 Insert tables from scripts/clickhouse_schema.sql
