@@ -7,3 +7,6 @@ do
   chmod 777 $ETH
   chown sadmin $ETH
 done
+
+rm -r /cdnf/db/*
+rm -r /cdnc/store/*
