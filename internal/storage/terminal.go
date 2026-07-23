@@ -66,3 +66,33 @@ func (t *Terminal) CommitOrdersBook(_ context.Context, data []OrdersBook) error 
 	}
 	return nil
 }
+
+// CommitPolymarketBook batch outputs input Polymarket raw book stream rows to terminal.
+func (t *Terminal) CommitPolymarketBook(_ context.Context, data []PolymarketBook) error {
+	for i := range data {
+		book := data[i]
+		fmt.Fprintf(t.out, "%-15s%-14s%-25s seq=%-12d %-40s %20s\n\n", "PolyBook", book.MsgType, book.TokenID, book.Seq, book.Data, book.Timestamp.Local().Format(TerminalTimestampMicroSec))
+	}
+	return nil
+}
+
+// CommitPolymarketMarket batch outputs input Polymarket market metadata to terminal.
+func (t *Terminal) CommitPolymarketMarket(_ context.Context, data []PolymarketMarket) error {
+	for i := range data {
+		mkt := data[i]
+		low := "null"
+		if mkt.PriceLow != nil {
+			low = fmt.Sprintf("%g", *mkt.PriceLow)
+		}
+		high := "null"
+		if mkt.PriceHigh != nil {
+			high = fmt.Sprintf("%g", *mkt.PriceHigh)
+		}
+		win := "null"
+		if mkt.WinningOutcome != nil {
+			win = fmt.Sprintf("%d", *mkt.WinningOutcome)
+		}
+		fmt.Fprintf(t.out, "%-15s%-12s%-25s %-8s%-10s%-10s%-10s resolved=%d win=%s  %s\n\n", "PolyMarket", mkt.MarketType, mkt.TokenID, low, high, mkt.OutcomeName, mkt.EventSlug, mkt.Resolved, win, mkt.ExpiryTs.Local().Format(TerminalTimestamp))
+	}
+	return nil
+}

@@ -146,6 +146,86 @@ func (c *ClickHouse) CommitLevel2(appCtx context.Context, data []Level2) error {
 	return nil
 }
 
+// CommitPolymarketBook batch inserts input Polymarket CLOB book snapshots to clickHouse.
+func (c *ClickHouse) CommitPolymarketBook(appCtx context.Context, data []PolymarketBook) error {
+	tx, err := c.DB.Begin()
+	if err != nil {
+		return err
+	}
+	stmt, err := tx.Prepare("INSERT INTO polymarket_book (exchange, event_id, condition_id, token_id, timestamp, seq, msg_type, data, book_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for i := range data {
+		book := data[i]
+		// Pass time.Time directly (driver uses UnixNano, tz-agnostic). Do NOT
+		// pass a formatted string: the driver's DateTime string-parse path
+		// re-interprets in time.Local and would corrupt values on a non-UTC host.
+		_, err := stmt.Exec("polymarket", book.EventID, book.ConditionID, book.TokenID, book.Timestamp.UTC(), book.Seq, book.MsgType, book.Data, book.BookHash)
+		if err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// CommitPolymarketMarket batch inserts (ReplacingMergeTree upserts) input Polymarket
+// market metadata / resolution rows to clickHouse.
+func (c *ClickHouse) CommitPolymarketMarket(appCtx context.Context, data []PolymarketMarket) error {
+	tx, err := c.DB.Begin()
+	if err != nil {
+		return err
+	}
+	stmt, err := tx.Prepare("INSERT INTO polymarket_market (event_id, event_slug, condition_id, token_id, token_index, question, outcome_name, market_type, price_low, price_high, tick_size, min_order_size, created_ts, expiry_ts, resolved, winning_outcome, updated_ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for i := range data {
+		mkt := data[i]
+
+		// Nullable columns: pass nil interface when the pointer is nil so
+		// ClickHouse stores NULL.
+		var priceLow, priceHigh interface{}
+		if mkt.PriceLow != nil {
+			priceLow = *mkt.PriceLow
+		}
+		if mkt.PriceHigh != nil {
+			priceHigh = *mkt.PriceHigh
+		}
+		var winningOutcome interface{}
+		if mkt.WinningOutcome != nil {
+			winningOutcome = *mkt.WinningOutcome
+		}
+
+		// Pass time.Time directly for all time columns. The driver's DateTime
+		// (created_ts/expiry_ts) string-parse path re-interprets in time.Local
+		// and would shift values on a non-UTC host; the time.Time path uses
+		// Unix()/UnixNano() and is tz-agnostic and correct for both DateTime and
+		// DateTime64 columns.
+		_, err := stmt.Exec(
+			mkt.EventID, mkt.EventSlug, mkt.ConditionID, mkt.TokenID, mkt.TokenIndex,
+			mkt.Question, mkt.OutcomeName, mkt.MarketType, priceLow, priceHigh, mkt.TickSize,
+			mkt.MinOrderSize, mkt.CreatedTs.UTC(),
+			mkt.ExpiryTs.UTC(), mkt.Resolved, winningOutcome,
+			mkt.UpdatedTs.UTC(),
+		)
+		if err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return nil
+}
+
 // CommitOrdersBook batch inserts input Order Book data to clickHouse.
 func (c *ClickHouse) CommitOrdersBook(appCtx context.Context, data []OrdersBook) error {
 	tx, err := c.DB.Begin()

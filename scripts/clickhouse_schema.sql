@@ -52,3 +52,52 @@ ORDER BY (exchange, market, timestamp)
 TTL toDateTime(timestamp, 'UTC') + INTERVAL 50 DAY TO DISK 'cold_storage',
     toDateTime(timestamp, 'UTC') + INTERVAL 5 MONTH
 SETTINGS storage_policy = 'moving_from_ssd_to_hdd';
+-- ---------------------------------------------------------------------------
+-- Polymarket CLOB tables (prediction-market book snapshots + market metadata).
+-- IDs are dynamic ERC1155 token ids / 0x condition ids => plain String columns
+-- (NOT the Enum8/Enum16 used by the crypto-spot tables above).
+-- ---------------------------------------------------------------------------
+
+-- polymarket_book: RAW CLOB stream — one row per WS message per token
+-- ('book' full-depth anchor OR 'price_change' delta). The writer keeps NO state;
+-- the reader replays anchors+deltas per token (ORDER BY token_id, seq) and verifies
+-- book_hash. Anchors are also force-refreshed periodically + on reconnect.
+CREATE TABLE IF NOT EXISTS polymarket_book
+(
+    `exchange` String,
+    `event_id` String,
+    `condition_id` String,
+    `token_id` String,
+    `timestamp` DateTime64(9, 'UTC'),
+    `seq` UInt64,
+    `msg_type` Enum8('book' = 1, 'price_change' = 2),
+    `data` String,
+    `book_hash` String
+) ENGINE = MergeTree()
+PARTITION BY toYYYYMMDD(timestamp)
+ORDER BY (token_id, seq)
+TTL toDateTime(timestamp, 'UTC') + INTERVAL 5 MONTH;
+
+-- polymarket_market: one row per outcome token (BOTH Yes and No of each strike;
+-- token_index 0=Yes/Up, 1=No/Down). Resolution upserts via ReplacingMergeTree.
+CREATE TABLE IF NOT EXISTS polymarket_market
+(
+    `event_id` String,
+    `event_slug` String,
+    `condition_id` String,
+    `token_id` String,
+    `token_index` UInt8,
+    `question` String,
+    `outcome_name` String,
+    `market_type` String,
+    `price_low` Nullable(Float64),
+    `price_high` Nullable(Float64),
+    `tick_size` Float64,
+    `min_order_size` Float64,
+    `created_ts` DateTime('UTC'),
+    `expiry_ts` DateTime('UTC'),
+    `resolved` UInt8,
+    `winning_outcome` Nullable(UInt8),
+    `updated_ts` DateTime64(9, 'UTC')
+) ENGINE = ReplacingMergeTree(updated_ts)
+ORDER BY (condition_id, token_id);

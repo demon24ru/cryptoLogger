@@ -39,6 +39,8 @@ Forked from [Cryptogalaxy](https://github.com/milkywaybrain/cryptogalaxy) is an 
  
 * All the data received from multiple exchanges are converted into common format and then displayed in terminal or stored to MySQL, Elasticsearch, InfluxDB, NATS, ClickHouse and S3.
  
+* Supports Polymarket crypto prediction markets (e.g. BTC / ETH price `ABOVE` & `RANGE` events). The app auto-discovers the active markets for the configured coins, records the raw CLOB order-book stream (snapshot anchors + deltas) and the real market resolution to ClickHouse. See the [Polymarket prediction markets](#polymarket-prediction-markets) section.
+ 
 * Some exchanges impose a rate limit on the number of channel subscriptions sent to websocket connections per second and if it crosses then disconnects the connection. To avoid this, the app makes staggered requests based on the rate limit of specific exchange.
  
 * Users can define intervals for each REST API request. 
@@ -270,7 +272,9 @@ Example configuration file can be found at [./examples/config.json](./examples/c
  
 * **exchanges : name** : Name of the exchange from which you need data.
  
-Possible values : ftx, coinbase-pro, binance, bitfinex, huobi, gateio, kucoin, bitstamp, bybit, probit, gemini, bitmart, digifinex, ascendex, kraken, binance-us, okex, ftx-us, hitbtc, aax, bitrue, btse, mexo, bequant, lbank, coinflex, binance-tr, cryptodot-com, fmfwio, changelly-pro.
+Possible values : ftx, coinbase-pro, binance, bitfinex, huobi, gateio, kucoin, bitstamp, bybit, probit, gemini, bitmart, digifinex, ascendex, kraken, binance-us, okex, ftx-us, hitbtc, aax, bitrue, btse, mexo, bequant, lbank, coinflex, binance-tr, cryptodot-com, fmfwio, changelly-pro, polymarket.
+
+*Note :* `polymarket` is a special prediction-market connector with its own configuration semantics — see the dedicated [Polymarket prediction markets](#polymarket-prediction-markets) section.
  
 * **exchanges : markets : id** : Market symbol for which data is needed. This has to be the exact one defined by exchange.
  
@@ -487,8 +491,162 @@ CREATE TABLE ordersbook
 PARTITION BY toYYYYMMDD(timestamp)
 ORDER BY (exchange, market, timestamp);
 ```
+
+Two extra tables are used only by the `polymarket` connector (see the [Polymarket prediction markets](#polymarket-prediction-markets) section). Their ids are dynamic ERC-1155 token / `0x` condition ids, so they use plain `String` columns instead of the `Enum` columns above. The app can create them automatically at startup (`auto_create_tables`), or you can apply them from [./scripts/clickhouse_schema.sql](./scripts/clickhouse_schema.sql).
+
+```sql
+-- Raw CLOB stream: one row per Polymarket websocket message per outcome token
+-- ('book' = full-depth snapshot anchor, 'price_change' = delta). The writer keeps
+-- no book state; the reader reconstructs the book by replaying anchors + deltas
+-- per token (ordered by seq) and verifying book_hash.
+CREATE TABLE polymarket_book
+(
+    `exchange` String,
+    `event_id` String,
+    `condition_id` String,
+    `token_id` String,
+    `timestamp` DateTime64(9, 'UTC'),
+    `seq` UInt64,
+    `msg_type` Enum8('book' = 1, 'price_change' = 2),
+    `data` String,        -- 'book': {"bids":[[price,size],...],"asks":[[...]]} ; 'price_change': [[price,size,side],...]
+    `book_hash` String
+) ENGINE = MergeTree()
+PARTITION BY toYYYYMMDD(timestamp)
+ORDER BY (token_id, seq)
+TTL toDateTime(timestamp, 'UTC') + INTERVAL 5 MONTH;
+```
+
+```sql
+-- Market metadata + real resolution. One row per outcome token (BOTH Yes and No
+-- of each strike; token_index 0 = Yes/Up, 1 = No/Down). The resolution fields are
+-- upserted once the market settles (ReplacingMergeTree by updated_ts).
+CREATE TABLE polymarket_market
+(
+    `event_id` String,
+    `event_slug` String,
+    `condition_id` String,
+    `token_id` String,
+    `token_index` UInt8,
+    `question` String,
+    `outcome_name` String,
+    `market_type` String,               -- ABOVE / RANGE
+    `price_low` Nullable(Float64),
+    `price_high` Nullable(Float64),
+    `tick_size` Float64,
+    `min_order_size` Float64,
+    `created_ts` DateTime('UTC'),
+    `expiry_ts` DateTime('UTC'),
+    `resolved` UInt8,
+    `winning_outcome` Nullable(UInt8),
+    `updated_ts` DateTime64(9, 'UTC')
+) ENGINE = ReplacingMergeTree(updated_ts)
+ORDER BY (condition_id, token_id);
+```
+
+*Note :* The `polymarket_book` / `polymarket_market` tables are recording (writer-side) tables. A separate reader is expected to reconstruct each token's book by replaying the `book` anchors + `price_change` deltas.
+
 *Note :* Above table creation schema is a basic simple one. ClickHouse provides a lot of important configurations via create statement. You can choose a different table and database engine, can do data partition having ‘hot’ and ‘cold’ split, schedule old data deletion, configure sparse indexing structure with data replication etc and all through the simple create schema statements. So please go through the ClickHouse official document and customize the above script specific to your needs. If you want you can also change Float64 to Decimal column type to avoid floating arithmetic error in some use cases (of course overflow checks lead to operations slowdown, but then there is an option to turn it off also!). Only thing to remember is, you should not change the ticker and trade table column names. 
 
+
+## Polymarket prediction markets
+
+The `polymarket` connector records [Polymarket](https://polymarket.com) crypto price prediction markets (currently `ABOVE` and `RANGE` events, e.g. *"Will the price of Bitcoin be above $60,000 on ...?"* / *"... between $58,000 and $60,000 ...?"*). Unlike the spot exchanges, these markets are dynamic and recurring, so the connector does **not** read a static market list from config — instead it **auto-discovers** the currently active markets for the configured coins via the Polymarket Gamma REST API, subscribes to each outcome token's CLOB order book over websocket, and writes the raw book stream plus the real market resolution to the `polymarket_book` / `polymarket_market` tables.
+
+Example configuration: [./examples/config.polymarket.json](./examples/config.polymarket.json)
+
+```json
+{
+    "exchanges": [
+        {
+            "name": "polymarket",
+            "markets": [
+                {
+                    "id": "BTC",
+                    "info": [
+                        {
+                            "channel": "book",
+                            "connector": "websocket",
+                            "market_types": ["ABOVE", "RANGE"],
+                            "storages": ["clickhouse"]
+                        }
+                    ]
+                },
+                {
+                    "id": "ETH",
+                    "info": [
+                        {
+                            "channel": "book",
+                            "connector": "websocket",
+                            "market_types": ["ABOVE"],
+                            "storages": ["clickhouse"]
+                        }
+                    ]
+                }
+            ],
+            "retry": { "number": 10, "gap_sec": 60, "reset_sec": 600 }
+        }
+    ],
+    "connection": {
+        "websocket": { "conn_timeout_sec": 10, "read_timeout_sec": 0 },
+        "clickhouse": {
+            "URL": "tcp://127.0.0.1:9000",
+            "schema": "cryptogalaxy",
+            "request_timeout_sec": 20,
+            "orders_book_commit_buffer": 50,
+            "market_commit_buffer": 20
+        },
+        "polymarket": {
+            "discovery_interval_sec": 300,
+            "resolution_interval_sec": 300,
+            "full_book_interval_sec": 300,
+            "gamma_tag_id": 1312,
+            "exclude_tag_ids": [136, 102368, 102127, 102536, 100198, 101337, 100150, 102537],
+            "auto_create_tables": true
+        }
+    },
+    "log": { "level": "info", "file_path": "./cryptogalaxy.log" }
+}
+```
+
+**Polymarket configuration options**
+
+* **exchanges : markets : id** : The coin ticker to record (e.g. `BTC`, `ETH`). List one market entry per coin — the connector keeps only the discovered events whose coin (derived from the event's Gamma tags, with a title fallback) matches. There is no separate global coin setting.
+
+* **exchanges : markets : info : channel** : Always `book` for Polymarket.
+
+* **exchanges : markets : info : market_types** : Which event types to record for this coin, as an array. Possible values : `ABOVE`, `RANGE`. Listing both records both; listing one filters the rest out; omitting / empty records all supported types.
+
+* **exchanges : markets : info : storages** : `terminal` and/or `clickhouse`. Routing is per-coin, so different coins can go to different storages.
+
+* **connection : clickhouse|terminal : orders_book_commit_buffer** : Batch size for `polymarket_book` inserts (the raw book stream reuses the same buffer as the exchange order-book tables). No separate polymarket buffer setting.
+
+* **connection : clickhouse|terminal : market_commit_buffer** : Batch size for `polymarket_market` metadata / resolution upserts.
+
+* **connection : polymarket : discovery_interval_sec** : How often to re-poll Gamma for newly minted / expired markets and reconcile the websocket subscriptions (default 300).
+
+* **connection : polymarket : resolution_interval_sec** : How often to poll the CLOB REST API for the resolution (`winning_outcome`) of settled markets (default 300).
+
+* **connection : polymarket : full_book_interval_sec** : How often to force a REST full-book snapshot anchor per subscribed token (default 300). This bounds how many deltas a reader must replay and provides re-sync points. A fresh anchor sweep also runs on every (re)connect.
+
+* **connection : polymarket : gamma_tag_id** : Base Gamma tag id for discovery (default `1312` = Crypto Prices). A single coin tag does not return every event, so a broad base tag plus `exclude_tag_ids` is used.
+
+* **connection : polymarket : exclude_tag_ids** : Gamma tag ids excluded from discovery (off-topic / non-price crypto sub-tags). Defaults shown above.
+
+* **connection : polymarket : auto_create_tables** : If `true`, the `polymarket_book` / `polymarket_market` tables are created automatically at startup (best-effort). Otherwise apply [./scripts/clickhouse_schema.sql](./scripts/clickhouse_schema.sql).
+
+**How discovery & classification works**
+
+1. Page through active Gamma events for `gamma_tag_id` minus `exclude_tag_ids` (Gamma caps 100 events / page, so the connector paginates by offset).
+2. Determine each event's coin from its tags (title fallback) and keep only the configured coins.
+3. Classify each market from its question text — `above` / `greater than` → `ABOVE`, `between` → `RANGE`, `less than` / `below` → `RANGE` (open-ended lower tail) — and apply the `market_types` filter. `TOUCH` (reach/hit/dip), `Up`/`Down` directional, volatility-index, dominance and comparison markets are skipped.
+4. For each strike, **both** the Yes and No outcome tokens are subscribed and recorded (the No book adds complementary depth a reader can merge into an effective Yes book).
+
+**Data model**
+
+* `polymarket_book` — the **raw** CLOB stream. The writer holds no book state: it stores each websocket message verbatim as a `book` full-depth anchor or a `price_change` delta, stamped with a per-token monotonic `seq` and the Polymarket `book_hash` checksum. A reader rebuilds the book at any time `T` by taking the latest `book` anchor with `seq ≤ seq(T)`, replaying the subsequent `price_change` deltas, and verifying `book_hash` (re-anchoring on mismatch).
+* `polymarket_market` — one row per outcome token with its `market_type`, BTC price bounds (`price_low` / `price_high`), tick / min-order size, and expiry. Once the market settles, `resolved` and `winning_outcome` are upserted from the **real** Polymarket resolution (CLOB `winner`), not computed from spot.
+
+*Note :* The spot price of the underlying (used by a downstream model) is **not** written to these tables — a reader is expected to join it from a spot `ticker` you already record (e.g. a kucoin `BTC-USDT` ticker).
 
 ## Output screenshots
  
@@ -721,19 +879,4 @@ docker ps -a
 
 # Logs containers from ID
 docker logs <ID>
-```
-
-[Docker clickHouse](https://netpoint-dc.com/blog/zapuskaem-server-yandex-clickhouse-v-vide-docker-s-nastroikoi-dlya-obrabotki-bolshogo-obema-dannih/)
-
-```shell
-docker run -d --name clickhouse_1 --ulimit nofile=262144:262144 -v /cdnf/db/log:/var/log/clickhouse-server -v /cdnf/db/data:/var/lib/clickhouse -v /cdnc:/home/cold_storage -v $(realpath ./settings/clickhouse/config.xml):/etc/clickhouse-server/config.xml yandex/clickhouse-server
-docker run -it --rm --link clickhouse_1:clickhouse-server yandex/clickhouse-client --host clickhouse-server --receive_timeout=360000
-```
-
-Insert tables from scripts/clickhouse_schema.sql
-
-```shell
-docker stop clickhouse_1
-docker rm clickhouse_1
-docker system prune -a --volumes
 ```

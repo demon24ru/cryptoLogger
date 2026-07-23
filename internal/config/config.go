@@ -157,6 +157,13 @@ const (
 	ChangellyProWebsocketURL = "wss://api.pro.changelly.com/api/3/ws/public"
 	// ChangellyProRESTBaseURL is the changelly-pro exchange base REST url.
 	ChangellyProRESTBaseURL = "https://api.pro.changelly.com/api/3/public/"
+
+	// PolymarketWebsocketURL is the Polymarket CLOB market (book) websocket url.
+	PolymarketWebsocketURL = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
+	// PolymarketGammaBaseURL is the Polymarket Gamma REST base url (market metadata / discovery).
+	PolymarketGammaBaseURL = "https://gamma-api.polymarket.com/"
+	// PolymarketCLOBBaseURL is the Polymarket CLOB REST base url (tick size / resolution).
+	PolymarketCLOBBaseURL = "https://clob.polymarket.com/"
 )
 
 // Config contains config values for the app.
@@ -188,6 +195,9 @@ type Info struct {
 	WsConsiderIntSec int      `json:"websocket_consider_interval_sec"`
 	RESTPingIntSec   int      `json:"rest_ping_interval_sec"`
 	Storages         []string `json:"storages"`
+	// MarketTypes selects which Polymarket event types to record for this market
+	// (e.g. ["ABOVE","RANGE"]). Empty = all supported types. Ignored by non-Polymarket exchanges.
+	MarketTypes []string `json:"market_types"`
 }
 
 // Retry contains config values for retry process.
@@ -208,6 +218,26 @@ type Connection struct {
 	NATS       NATS       `json:"nats"`
 	ClickHouse ClickHouse `json:"clickhouse"`
 	S3         S3         `json:"s3"`
+	Polymarket Polymarket `json:"polymarket"`
+}
+
+// Polymarket contains config values for the Polymarket connector.
+// Zero values fall back to sane defaults inside the connector.
+type Polymarket struct {
+	// DiscoveryIntSec is how often to poll Gamma for active BTC markets (default 300).
+	DiscoveryIntSec int `json:"discovery_interval_sec"`
+	// ResolutionIntSec is how often to poll CLOB for resolution of settled markets (default 300).
+	ResolutionIntSec int `json:"resolution_interval_sec"`
+	// FullBookIntSec is how often to force a REST full-book anchor per token (default 300).
+	FullBookIntSec int `json:"full_book_interval_sec"`
+	// GammaTagID is the base Gamma tag id for discovery (default 1312 = Crypto Prices;
+	// a single tag can't return every BTC event, so a base tag + exclusions is used).
+	GammaTagID int `json:"gamma_tag_id"`
+	// ExcludeTagIDs are Gamma tag ids excluded from discovery (repeated exclude_tag_id
+	// query params). Default excludes non-price / off-topic crypto sub-tags.
+	ExcludeTagIDs []int `json:"exclude_tag_ids"`
+	// AutoCreateTables, if true, idempotently creates the polymarket_* tables at startup.
+	AutoCreateTables bool `json:"auto_create_tables"`
 }
 
 // WS contains config values for websocket connection.
@@ -232,6 +262,8 @@ type Terminal struct {
 	TradeCommitBuf      int `json:"trade_commit_buffer"`
 	Level2CommitBuf     int `json:"level2_commit_buffer"`
 	OrdersBookCommitBuf int `json:"orders_book_commit_buffer"`
+	// MarketCommitBuf is the batch size for Polymarket market-metadata upserts.
+	MarketCommitBuf int `json:"market_commit_buffer"`
 }
 
 // MySQL contains config values for mysql.
@@ -297,6 +329,8 @@ type ClickHouse struct {
 	TradeCommitBuf      int      `json:"trade_commit_buffer"`
 	Level2CommitBuf     int      `json:"level2_commit_buffer"`
 	OrdersBookCommitBuf int      `json:"orders_book_commit_buffer"`
+	// MarketCommitBuf is the batch size for Polymarket market-metadata upserts.
+	MarketCommitBuf int `json:"market_commit_buffer"`
 }
 
 // S3 contains config values for s3.

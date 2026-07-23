@@ -87,6 +87,16 @@ func Start(mainCtx context.Context, cfg *config.Config) error {
 							}
 							clickHouseStr = true
 							log.Info().Msg("clickhouse connected")
+
+							// Best-effort idempotent creation of the crypto-spot tables
+							// (ticker/trade/level2/ordersbook), mirroring the polymarket
+							// connector's CreatePolymarketTables. Non-fatal: if it fails
+							// (e.g. missing storage policy) apply scripts/clickhouse_schema.sql.
+							if err := storage.GetClickHouse().CreateExchangeTables(mainCtx); err != nil {
+								log.Error().Err(err).Msg("auto-create exchange tables failed (continuing; ensure scripts/clickhouse_schema.sql applied)")
+							} else {
+								log.Info().Msg("exchange tables ensured")
+							}
 						}
 					}
 				}
@@ -144,6 +154,10 @@ func Start(mainCtx context.Context, cfg *config.Config) error {
 		case "kucoin":
 			appErrGroup.Go(func() error {
 				return exchange.StartKucoin(appCtx, markets, &retry, &cfg.Connection)
+			})
+		case "polymarket":
+			appErrGroup.Go(func() error {
+				return exchange.StartPolymarket(appCtx, markets, &retry, &cfg.Connection)
 			})
 		case "kucoinFutures":
 			appErrGroup.Go(func() error {

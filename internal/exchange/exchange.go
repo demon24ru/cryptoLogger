@@ -147,6 +147,24 @@ func WsOrdersBookToStorage(ctx context.Context, str storage.Storage, ordersBook 
 	}
 }
 
+// WsPolymarketBookToStorage batch inserts input Polymarket book snapshots from websocket to specified storage.
+func WsPolymarketBookToStorage(ctx context.Context, str storage.Storage, books <-chan []storage.PolymarketBook) error {
+	for {
+		select {
+		case data := <-books:
+			err := str.CommitPolymarketBook(ctx, data)
+			if err != nil {
+				if !errors.Is(err, ctx.Err()) {
+					logErrStack(err)
+				}
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
 // logErrStack logs error with stack trace.
 func logErrStack(err error) {
 	log.Error().Stack().Err(errors.WithStack(err)).Msg("")
