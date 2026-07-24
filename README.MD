@@ -39,7 +39,7 @@ Forked from [Cryptogalaxy](https://github.com/milkywaybrain/cryptogalaxy) is an 
  
 * All the data received from multiple exchanges are converted into common format and then displayed in terminal or stored to MySQL, Elasticsearch, InfluxDB, NATS, ClickHouse and S3.
  
-* Supports Polymarket crypto prediction markets (e.g. BTC / ETH price `ABOVE` & `RANGE` events). The app auto-discovers the active markets for the configured coins, records the raw CLOB order-book stream (snapshot anchors + deltas) and the real market resolution to ClickHouse. See the [Polymarket prediction markets](#polymarket-prediction-markets) section.
+* Supports Polymarket crypto prediction markets (e.g. BTC / ETH price `ABOVE`, `RANGE` & `TOUCH` events). The app auto-discovers the active markets for the configured coins, records the raw CLOB order-book stream (snapshot anchors + deltas) and the real market resolution to ClickHouse. See the [Polymarket prediction markets](#polymarket-prediction-markets) section.
  
 * Some exchanges impose a rate limit on the number of channel subscriptions sent to websocket connections per second and if it crosses then disconnects the connection. To avoid this, the app makes staggered requests based on the rate limit of specific exchange.
  
@@ -529,7 +529,7 @@ CREATE TABLE polymarket_market
     `token_index` UInt8,
     `question` String,
     `outcome_name` String,
-    `market_type` String,               -- ABOVE / RANGE
+    `market_type` String,               -- ABOVE / RANGE / TOUCH
     `price_low` Nullable(Float64),
     `price_high` Nullable(Float64),
     `tick_size` Float64,
@@ -550,7 +550,7 @@ ORDER BY (condition_id, token_id);
 
 ## Polymarket prediction markets
 
-The `polymarket` connector records [Polymarket](https://polymarket.com) crypto price prediction markets (currently `ABOVE` and `RANGE` events, e.g. *"Will the price of Bitcoin be above $60,000 on ...?"* / *"... between $58,000 and $60,000 ...?"*). Unlike the spot exchanges, these markets are dynamic and recurring, so the connector does **not** read a static market list from config — instead it **auto-discovers** the currently active markets for the configured coins via the Polymarket Gamma REST API, subscribes to each outcome token's CLOB order book over websocket, and writes the raw book stream plus the real market resolution to the `polymarket_book` / `polymarket_market` tables.
+The `polymarket` connector records [Polymarket](https://polymarket.com) crypto price prediction markets — `ABOVE` (*"Will the price of Bitcoin be above $60,000 on ...?"*), `RANGE` (*"... between $58,000 and $60,000 ...?"*) and `TOUCH` (*"Will Bitcoin reach $100,000 in July?"* / *"... dip to $60,000 ...?"*) events. Unlike the spot exchanges, these markets are dynamic and recurring, so the connector does **not** read a static market list from config — instead it **auto-discovers** the currently active markets for the configured coins via the Polymarket Gamma REST API, subscribes to each outcome token's CLOB order book over websocket, and writes the raw book stream plus the real market resolution to the `polymarket_book` / `polymarket_market` tables.
 
 Example configuration: [./examples/config.polymarket.json](./examples/config.polymarket.json)
 
@@ -614,7 +614,7 @@ Example configuration: [./examples/config.polymarket.json](./examples/config.pol
 
 * **exchanges : markets : info : channel** : Always `book` for Polymarket.
 
-* **exchanges : markets : info : market_types** : Which event types to record for this coin, as an array. Possible values : `ABOVE`, `RANGE`. Listing both records both; listing one filters the rest out; omitting / empty records all supported types.
+* **exchanges : markets : info : market_types** : Which event types to record for this coin, as an array. Possible values : `ABOVE`, `RANGE`, `TOUCH`. Listing several records all of them; listing one filters the rest out; omitting / empty records all supported types.
 
 * **exchanges : markets : info : storages** : `terminal` and/or `clickhouse`. Routing is per-coin, so different coins can go to different storages.
 
@@ -638,7 +638,7 @@ Example configuration: [./examples/config.polymarket.json](./examples/config.pol
 
 1. Page through active Gamma events for `gamma_tag_id` minus `exclude_tag_ids` (Gamma caps 100 events / page, so the connector paginates by offset).
 2. Determine each event's coin from its tags (title fallback) and keep only the configured coins.
-3. Classify each market — the interval shape comes from the `groupItemTitle` prefix (the reliable signal): `A-B` (or a `between` question) → `RANGE`; `<X` (or `less than`/`below`) → `RANGE` open-ended lower tail; `>X` (or `greater than`) → `RANGE` open-ended upper tail; a bare number `X` with an `above` question → `ABOVE` ladder strike. Then apply the `market_types` filter. `TOUCH` (reach/hit/dip), `Up`/`Down` directional, volatility-index, dominance and comparison markets are skipped. Note: `>X` / `greater than` is the **top of a range ladder** (`bitcoin-price-on-DATE` events), not a standalone `ABOVE` — so an event stays a consistent single type.
+3. Classify each market — the interval shape comes from the `groupItemTitle` prefix (the reliable signal): `↑ X` (reach $X) → `TOUCH` upward barrier; `↓ X` (dip to $X) → `TOUCH` downward barrier; `A-B` (or a `between` question) → `RANGE`; `<X` (or `less than`/`below`) → `RANGE` open-ended lower tail; `>X` (or `greater than`) → `RANGE` open-ended upper tail; a bare number `X` with an `above` question → `ABOVE` ladder strike. Then apply the `market_types` filter. `Up`/`Down` directional, `hit $X by DATE` date-target, volatility-index, dominance and comparison markets are skipped. Notes: `>X` / `greater than` is the **top of a range ladder** (`bitcoin-price-on-DATE` events), not a standalone `ABOVE`, so an event stays a consistent single type; the volatility-index `↑/↓` markets are excluded even though they use arrows.
 4. For each strike, **both** the Yes and No outcome tokens are subscribed and recorded (the No book adds complementary depth a reader can merge into an effective Yes book).
 
 **Data model**

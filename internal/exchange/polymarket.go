@@ -115,6 +115,15 @@ var polyNumRe = regexp.MustCompile(`\d[\d,]*(?:\.\d+)?`)
 // en-dash), e.g. "56,000-58,000" or "66,000–68,000".
 var polyRangeRe = regexp.MustCompile(`\d[\d,]*(?:\.\d+)?\s*[-–]\s*\d[\d,]*(?:\.\d+)?`)
 
+// Arrow prefixes used by Polymarket TOUCH-market groupItemTitles:
+//
+//	"↑ X" -> reach UP to X   (touch barrier from below)
+//	"↓ X" -> dip  DOWN to X  (touch barrier from above)
+const (
+	polyArrowUp   = "↑" // ↑
+	polyArrowDown = "↓" // ↓
+)
+
 // StartPolymarket is for starting the Polymarket connector functions.
 func StartPolymarket(appCtx context.Context, markets []config.Market, retry *config.Retry, connCfg *config.Connection) error {
 
@@ -288,8 +297,8 @@ func newPolymarket(appCtx context.Context, markets []config.Market, connCfg *con
 				if t == "" {
 					continue
 				}
-				if t != "ABOVE" && t != "RANGE" {
-					log.Error().Str("exchange", "polymarket").Str("coin", coin).Str("market_type", t).Msg("unknown market_type in config (supported: ABOVE, RANGE) — nothing will match it")
+				if t != "ABOVE" && t != "RANGE" && t != "TOUCH" {
+					log.Error().Str("exchange", "polymarket").Str("coin", coin).Str("market_type", t).Msg("unknown market_type in config (supported: ABOVE, RANGE, TOUCH) — nothing will match it")
 				}
 				cc.types[t] = struct{}{}
 			}
@@ -1306,10 +1315,16 @@ func (p *polymarket) getJSON(ctx context.Context, url string, target interface{}
 // eventCoin), so this only decides the price-level type — the same logic fits any coin.
 //
 // Accepted (in-scope price levels):
+//   - "↑ X" title (reach $X)                    -> TOUCH (low=nil, high=X)    [touch barrier from below]
+//   - "↓ X" title (dip to $X)                   -> TOUCH (low=X, high=nil)    [touch barrier from above]
 //   - "A-B" title / "between $X and $Y"        -> RANGE (low=min, high=max)
 //   - "<X" title / "less than $X" / "below $X"  -> RANGE (low=nil, high=X)   [ladder bottom tail]
 //   - ">X" title / "greater than $X"            -> RANGE (low=X, high=nil)   [ladder top tail]
 //   - plain "X" title with "above $X"           -> ABOVE (low=X, high=nil)   [above-ladder strike]
+//
+// The TOUCH low/high convention matches the reader's settle logic (a non-nil
+// price_high is an upward barrier reached if window_high >= X; a non-nil price_low
+// is a downward barrier reached if window_low <= X).
 //
 // Note the ">X" / "greater than" form is the OPEN-ENDED TOP of a range ladder
 // ("bitcoin-price-on-DATE" events), NOT a standalone ABOVE market — ABOVE-ladder
@@ -1317,9 +1332,9 @@ func (p *polymarket) getJSON(ctx context.Context, url string, target interface{}
 // (expiry >= X), but the type must stay consistent within an event so the reader's
 // per-event RANGE ladder is not left with a gap.
 //
-// Skipped (ok=false): TOUCH markets ("reach/hit/dip $X"); "Up or Down" directional;
+// Skipped (ok=false): "hit $X by DATE" date-target markets; "Up or Down" directional;
 // and non-price contexts (volatility index, dominance, market cap, comparisons —
-// see polyBadContext).
+// see polyBadContext, which also removes the volatility-index "↑/↓" markets).
 func parseMarket(groupItemTitle, question string) (low *float64, high *float64, mtype string, ok bool) {
 	ql := strings.ToLower(question)
 	for _, bad := range polyBadContext {
@@ -1332,6 +1347,18 @@ func parseMarket(groupItemTitle, question string) (low *float64, high *float64, 
 	nums := parseNums(g)
 
 	switch {
+	// TOUCH upward barrier: "↑ X" (reach $X) -> high = barrier.
+	case strings.HasPrefix(g, polyArrowUp):
+		if len(nums) >= 1 {
+			n := nums[0]
+			return nil, &n, "TOUCH", true
+		}
+	// TOUCH downward barrier: "↓ X" (dip to $X) -> low = barrier.
+	case strings.HasPrefix(g, polyArrowDown):
+		if len(nums) >= 1 {
+			n := nums[0]
+			return &n, nil, "TOUCH", true
+		}
 	// RANGE bucket: "A-B" title, or "between" question.
 	case polyRangeRe.MatchString(g) || strings.Contains(ql, "between"):
 		if len(nums) >= 2 {

@@ -9,7 +9,7 @@
                         {
                             "channel": "book",
                             "connector": "websocket",
-                            "market_types": ["ABOVE", "RANGE"],
+                            "market_types": ["ABOVE", "RANGE", "TOUCH"],
                             "websocket_consider_interval_sec": 0,
                             "storages": [
                                 "clickhouse"

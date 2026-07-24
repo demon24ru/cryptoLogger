@@ -31,9 +31,13 @@ func TestParseMarket(t *testing.T) {
 		// ">X" / "greater than" is the OPEN-ENDED TOP of a range ladder, NOT ABOVE.
 		{"range-top-tail", ">74,000", "Will the price of Bitcoin be greater than $74,000 on July 30?", "RANGE", f(74000), nil},
 
+		// TOUCH: "↑ X" = reach up to X (high=barrier), "↓ X" = dip down to X (low=barrier).
+		{"touch-up", "↑ 100,000", "Will Bitcoin reach $100,000 in July?", "TOUCH", nil, f(100000)},
+		{"touch-down", "↓ 60,000", "Will Bitcoin dip to $60,000 in July?", "TOUCH", f(60000), nil},
+
 		// Out of scope -> skipped (coin is filtered separately at the event level).
-		{"touch-hit", "by September 30, 2025", "Will Bitcoin hit $150k by September 30?", "", nil, nil},
-		{"touch-dip-volindex", "↓ 40", "Will the Bitcoin Volatility Index dip to 40 by July 31?", "", nil, nil},
+		{"date-target", "by September 30, 2025", "Will Bitcoin hit $150k by September 30?", "", nil, nil},
+		{"volindex-touch", "↓ 40", "Will the Bitcoin Volatility Index dip to 40 by July 31?", "", nil, nil},
 		{"updown", "", "Bitcoin Up or Down - July 23, 1:00PM-1:05PM ET", "", nil, nil},
 		{"comparison", "", "Will Bitcoin outperform Gold in 2026?", "", nil, nil},
 	}
