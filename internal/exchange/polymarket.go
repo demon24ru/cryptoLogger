@@ -111,6 +111,10 @@ func eventCoin(ev *gammaEvent) string {
 // e.g. "60,000" -> 60000, "↑ 100,000" -> 100000, "60,000-65,000" -> [60000,65000].
 var polyNumRe = regexp.MustCompile(`\d[\d,]*(?:\.\d+)?`)
 
+// polyRangeRe matches an "A-B" numeric range in a groupItemTitle (hyphen or
+// en-dash), e.g. "56,000-58,000" or "66,000–68,000".
+var polyRangeRe = regexp.MustCompile(`\d[\d,]*(?:\.\d+)?\s*[-–]\s*\d[\d,]*(?:\.\d+)?`)
+
 // StartPolymarket is for starting the Polymarket connector functions.
 func StartPolymarket(appCtx context.Context, markets []config.Market, retry *config.Retry, connCfg *config.Connection) error {
 
@@ -1295,15 +1299,23 @@ func (p *polymarket) getJSON(ctx context.Context, url string, target interface{}
 	return nil
 }
 
-// parseMarket classifies a single market into (market_type, price_low, price_high)
-// from its QUESTION phrasing, taking the price level(s) from groupItemTitle. The
-// coin is filtered at the event level (see eventCoin); this only decides the
-// price-level TYPE, so the same logic works for any coin.
+// parseMarket classifies a single market into (market_type, price_low, price_high).
+// The price level(s) come from groupItemTitle, and the interval SHAPE is taken from
+// the groupItemTitle prefix (the reliable signal, matching Polymarket's own labels),
+// with the question as a fallback. The coin is filtered at the event level (see
+// eventCoin), so this only decides the price-level type — the same logic fits any coin.
 //
 // Accepted (in-scope price levels):
-//   - "above $X" / "greater than $X"  -> ABOVE (low=X, high=nil)
-//   - "between $X and $Y"             -> RANGE (low=min, high=max)
-//   - "less than $X" / "below $X"     -> RANGE (low=nil, high=X)  [range-ladder bottom tail]
+//   - "A-B" title / "between $X and $Y"        -> RANGE (low=min, high=max)
+//   - "<X" title / "less than $X" / "below $X"  -> RANGE (low=nil, high=X)   [ladder bottom tail]
+//   - ">X" title / "greater than $X"            -> RANGE (low=X, high=nil)   [ladder top tail]
+//   - plain "X" title with "above $X"           -> ABOVE (low=X, high=nil)   [above-ladder strike]
+//
+// Note the ">X" / "greater than" form is the OPEN-ENDED TOP of a range ladder
+// ("bitcoin-price-on-DATE" events), NOT a standalone ABOVE market — ABOVE-ladder
+// strikes use the word "above" with a bare-number title. Both settle identically
+// (expiry >= X), but the type must stay consistent within an event so the reader's
+// per-event RANGE ladder is not left with a gap.
 //
 // Skipped (ok=false): TOUCH markets ("reach/hit/dip $X"); "Up or Down" directional;
 // and non-price contexts (volatility index, dominance, market cap, comparisons —
@@ -1316,10 +1328,12 @@ func parseMarket(groupItemTitle, question string) (low *float64, high *float64, 
 		}
 	}
 
-	nums := parseNums(groupItemTitle)
+	g := strings.TrimSpace(groupItemTitle)
+	nums := parseNums(g)
 
 	switch {
-	case strings.Contains(ql, "between"):
+	// RANGE bucket: "A-B" title, or "between" question.
+	case polyRangeRe.MatchString(g) || strings.Contains(ql, "between"):
 		if len(nums) >= 2 {
 			l, h := nums[0], nums[1]
 			if l > h {
@@ -1327,12 +1341,20 @@ func parseMarket(groupItemTitle, question string) (low *float64, high *float64, 
 			}
 			return &l, &h, "RANGE", true
 		}
-	case strings.Contains(ql, "less than") || strings.Contains(ql, "below"):
+	// RANGE open-ended lower tail: "<X" title, or "less than"/"below" question.
+	case strings.HasPrefix(g, "<") || strings.Contains(ql, "less than") || strings.Contains(ql, "below"):
 		if len(nums) >= 1 {
 			n := nums[0]
 			return nil, &n, "RANGE", true
 		}
-	case strings.Contains(ql, "greater than") || strings.Contains(ql, "above"):
+	// RANGE open-ended upper tail: ">X" title (top of a range ladder).
+	case strings.HasPrefix(g, ">"):
+		if len(nums) >= 1 {
+			n := nums[0]
+			return &n, nil, "RANGE", true
+		}
+	// ABOVE strike: bare-number title with an "above"/"greater than" question.
+	case strings.Contains(ql, "above") || strings.Contains(ql, "greater than"):
 		if len(nums) >= 1 {
 			n := nums[0]
 			return &n, nil, "ABOVE", true

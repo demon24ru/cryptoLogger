@@ -20,14 +20,16 @@ func TestParseMarket(t *testing.T) {
 		wantLow  *float64
 		wantHigh *float64
 	}{
-		// ABOVE (daily "$" form, hourly no-"$" form, and "greater than").
+		// ABOVE ladder: bare-number title with an "above" question.
 		{"above-daily", "54,000", "Will the price of Bitcoin be above $54,000 on July 23?", "ABOVE", f(54000), nil},
 		{"above-hourly", "68,400", "Bitcoin above 68,400 on July 22, 2PM ET?", "ABOVE", f(68400), nil},
-		{"greater-than", ">74,000", "Will the price of Bitcoin be greater than $74,000 on July 23?", "ABOVE", f(74000), nil},
 
-		// RANGE (between) and range-ladder bottom tail (less than).
+		// RANGE ladder: middle buckets ("A-B") and the two open-ended tails.
 		{"between", "56,000-58,000", "Will the price of Bitcoin be between $56,000 and $58,000 on July 23?", "RANGE", f(56000), f(58000)},
-		{"less-than", "<56,000", "Will the price of Bitcoin be less than $56,000 on July 23?", "RANGE", nil, f(56000)},
+		{"between-endash", "66,000–68,000", "Will the price of Bitcoin be between $66,000 and $68,000 on July 23?", "RANGE", f(66000), f(68000)},
+		{"range-bottom-tail", "<56,000", "Will the price of Bitcoin be less than $56,000 on July 23?", "RANGE", nil, f(56000)},
+		// ">X" / "greater than" is the OPEN-ENDED TOP of a range ladder, NOT ABOVE.
+		{"range-top-tail", ">74,000", "Will the price of Bitcoin be greater than $74,000 on July 30?", "RANGE", f(74000), nil},
 
 		// Out of scope -> skipped (coin is filtered separately at the event level).
 		{"touch-hit", "by September 30, 2025", "Will Bitcoin hit $150k by September 30?", "", nil, nil},
