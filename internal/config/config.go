@@ -186,6 +186,14 @@ type Market struct {
 	ID         string `json:"id"`
 	Info       []Info `json:"info"`
 	CommitName string `json:"commit_name"`
+	// The fields below are Polymarket-only (ignored by other exchanges). They
+	// define WHICH events this subject (id) records, by Gamma tags:
+	//   GammaTagID    — base Gamma tag queried for discovery (e.g. 1312 Crypto Prices).
+	//   RequireTagIDs — event must ALSO carry all of these tags (AND filter).
+	//   ExcludeTagIDs — event must carry none of these tags.
+	GammaTagID    int   `json:"gamma_tag_id"`
+	RequireTagIDs []int `json:"require_tag_ids"`
+	ExcludeTagIDs []int `json:"exclude_tag_ids"`
 }
 
 // Info contains config values for different market channels.
@@ -230,12 +238,6 @@ type Polymarket struct {
 	ResolutionIntSec int `json:"resolution_interval_sec"`
 	// FullBookIntSec is how often to force a REST full-book anchor per token (default 300).
 	FullBookIntSec int `json:"full_book_interval_sec"`
-	// GammaTagID is the base Gamma tag id for discovery (default 1312 = Crypto Prices;
-	// a single tag can't return every BTC event, so a base tag + exclusions is used).
-	GammaTagID int `json:"gamma_tag_id"`
-	// ExcludeTagIDs are Gamma tag ids excluded from discovery (repeated exclude_tag_id
-	// query params). Default excludes non-price / off-topic crypto sub-tags.
-	ExcludeTagIDs []int `json:"exclude_tag_ids"`
 	// AutoCreateTables, if true, idempotently creates the polymarket_* tables at startup.
 	AutoCreateTables bool `json:"auto_create_tables"`
 }

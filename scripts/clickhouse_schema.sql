@@ -65,6 +65,7 @@ SETTINGS storage_policy = 'moving_from_ssd_to_hdd';
 CREATE TABLE IF NOT EXISTS polymarket_book
 (
     `exchange` String,
+    `subject` String,
     `event_id` String,
     `condition_id` String,
     `token_id` String,
@@ -82,6 +83,7 @@ TTL toDateTime(timestamp, 'UTC') + INTERVAL 5 MONTH;
 -- token_index 0=Yes/Up, 1=No/Down). Resolution upserts via ReplacingMergeTree.
 CREATE TABLE IF NOT EXISTS polymarket_market
 (
+    `subject` String,
     `event_id` String,
     `event_slug` String,
     `condition_id` String,

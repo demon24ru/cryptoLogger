@@ -5,15 +5,86 @@
             "markets": [
                 {
                     "id": "BTC",
+                    "gamma_tag_id": 1312,
+                    "require_tag_ids": [235],
+                    "exclude_tag_ids":[102127],
                     "info": [
                         {
                             "channel": "book",
                             "connector": "websocket",
                             "market_types": ["ABOVE", "RANGE", "TOUCH"],
                             "websocket_consider_interval_sec": 0,
-                            "storages": [
-                                "clickhouse"
-                            ]
+                            "storages": ["clickhouse"]
+                        }
+                    ]
+                },
+                {
+                    "id": "WTI",
+                    "gamma_tag_id": 309,
+                    "require_tag_ids": [104466],
+                    "info": [
+                        {
+                            "channel": "book",
+                            "connector": "websocket",
+                            "market_types": ["ABOVE", "TOUCH"],
+                            "websocket_consider_interval_sec": 0,
+                            "storages": ["clickhouse"]
+                        }
+                    ]
+                },
+                {
+                    "id": "SPY",
+                    "gamma_tag_id": 104166,
+                    "require_tag_ids": [104466],
+                    "info": [
+                        {
+                            "channel": "book",
+                            "connector": "websocket",
+                            "market_types": ["ABOVE", "TOUCH"],
+                            "websocket_consider_interval_sec": 0,
+                            "storages": ["clickhouse"]
+                        }
+                    ]
+                },
+                {
+                    "id": "XAUUSD",
+                    "gamma_tag_id": 101589,
+                    "require_tag_ids": [104466],
+                    "info": [
+                        {
+                            "channel": "book",
+                            "connector": "websocket",
+                            "market_types": ["ABOVE", "TOUCH"],
+                            "websocket_consider_interval_sec": 0,
+                            "storages": ["clickhouse"]
+                        }
+                    ]
+                },
+                {
+                    "id": "WEATHER_HIGH",
+                    "gamma_tag_id": 103040,
+                    "require_tag_ids": [104596],
+                    "info": [
+                        {
+                            "channel": "book",
+                            "connector": "websocket",
+                            "market_types": ["BUCKET"],
+                            "websocket_consider_interval_sec": 0,
+                            "storages": ["clickhouse"]
+                        }
+                    ]
+                },
+                {
+                    "id": "WEATHER_LOW",
+                    "gamma_tag_id": 103040,
+                    "require_tag_ids": [104597],
+                    "info": [
+                        {
+                            "channel": "book",
+                            "connector": "websocket",
+                            "market_types": ["BUCKET"],
+                            "websocket_consider_interval_sec": 0,
+                            "storages": ["clickhouse"]
                         }
                     ]
                 }
@@ -66,15 +137,13 @@
             "ticker_commit_buffer": 100,
             "trade_commit_buffer": 100,
             "level2_commit_buffer": 100,
-            "orders_book_commit_buffer": 50,
-            "market_commit_buffer": 20
+            "orders_book_commit_buffer": 1000,
+            "market_commit_buffer": 100
         },
         "polymarket": {
             "discovery_interval_sec": 300,
             "resolution_interval_sec": 300,
             "full_book_interval_sec": 300,
-            "gamma_tag_id": 1312,
-            "exclude_tag_ids": [136, 102368, 102127, 102536, 100198, 101337, 100150, 102537],
             "auto_create_tables": true
         }
     },

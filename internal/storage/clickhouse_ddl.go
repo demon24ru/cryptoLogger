@@ -51,6 +51,7 @@ func (c *ClickHouse) CreatePolymarketTables(appCtx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS polymarket_book (
 			exchange String,
+			subject String,
 			event_id String,
 			condition_id String,
 			token_id String,
@@ -64,6 +65,7 @@ func (c *ClickHouse) CreatePolymarketTables(appCtx context.Context) error {
 		ORDER BY (token_id, seq)
 		TTL toDateTime(timestamp, 'UTC') + INTERVAL 5 MONTH`,
 		`CREATE TABLE IF NOT EXISTS polymarket_market (
+			subject String,
 			event_id String,
 			event_slug String,
 			condition_id String,

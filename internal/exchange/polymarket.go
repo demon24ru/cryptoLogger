@@ -25,86 +25,49 @@ import (
 // Polymarket connector.
 //
 // Unlike the crypto-spot exchanges, Polymarket markets are dynamic and recurring,
-// so this connector DISCOVERS the active ABOVE/RANGE markets for the configured
-// coins (markets[].id, e.g. "BTC", "ETH") via the Gamma REST API — rather than
-// reading a static market list from config. It upserts their metadata + resolution
-// into `polymarket_market`, and subscribes to each outcome token's CLOB order book
-// on the market websocket channel, persisting the RAW book/price_change stream into
-// `polymarket_book`. The spot price (model underlying) is NOT written here — the
-// backtest joins it from the existing spot ticker. See REAL_DATA_SCHEMA.md.
+// so this connector DISCOVERS the active markets for each configured SUBJECT
+// (markets[].id, e.g. "BTC", "SPY", "WTI", "WEATHER_HIGH") via the Gamma REST API —
+// each subject defined by its Gamma tags (markets[].gamma_tag_id + require/exclude).
+// It classifies markets into ABOVE / RANGE / TOUCH / BUCKET(weather), upserts their
+// metadata + resolution into `polymarket_market`, and subscribes to each outcome
+// token's CLOB order book on the market websocket channel, persisting the RAW
+// book/price_change stream into `polymarket_book`. See REAL_DATA_SCHEMA.md.
 
 // Defaults for Polymarket connector config (used when the config value is zero).
 const (
 	polyDefaultDiscoveryIntSec  = 300
 	polyDefaultResolutionIntSec = 300
-	polyDefaultFullBookIntSec   = 300  // force a REST full-book anchor per token this often
-	polyDefaultGammaTagID       = 1312 // Crypto Prices (base tag; coins from markets[].id)
-	polyGammaPageLimit          = 100  // Gamma caps events per page at 100 -> paginate by offset
-	polyGammaMaxPages           = 50   // safety cap on discovery pagination
+	polyDefaultFullBookIntSec   = 300 // force a REST full-book anchor per token this often
+	polyGammaPageLimit          = 100 // Gamma caps events per page at 100 -> paginate by offset
+	polyGammaMaxPages           = 50  // safety cap on discovery pagination
 	polyHTTPTimeoutSec          = 20
 	polyPingIntSec              = 10
 	polyBookFlushIntSec         = 2  // time-based flush so quiet strikes' tail rows are not held back
 	polyFullBookThrottleMs      = 25 // gap between per-token REST /book requests in an anchor sweep
 )
 
-// polyDefaultExcludeTagIDs are Gamma sub-tags excluded from discovery so the
-// Crypto-Prices base tag yields the full BTC price-market set without off-topic
-// / non-price events. Overridable via config (exclude_tag_ids).
-var polyDefaultExcludeTagIDs = []int{136, 102368, 102127, 102536, 100198, 101337, 100150, 102537}
-
 // polyBadContext lists non-price contexts to exclude even when the phrasing
 // otherwise looks like a level (e.g. "Bitcoin Volatility Index above 40",
 // "Bitcoin dominance ...").
 var polyBadContext = []string{"volatility", "dominance", "index", "market cap", "outperform", "valuable", "flip"}
 
-// polyTagToTicker maps a Gamma tag label (lower-cased) to the coin ticker. The
-// discovery feed (Crypto Prices) carries every coin, so the coin is derived per
-// event from its tags (first coin tag wins), with a title fallback below.
-var polyTagToTicker = map[string]string{
-	"bitcoin":  "BTC",
-	"ethereum": "ETH", "ether": "ETH",
-	"solana": "SOL",
-	"xrp":    "XRP", "ripple": "XRP",
-	"dogecoin": "DOGE", "doge": "DOGE",
-	"bnb":       "BNB",
-	"chainlink": "LINK", "link": "LINK",
-	"cardano": "ADA", "ada": "ADA",
-	"avalanche": "AVAX", "avax": "AVAX",
-	"polkadot": "DOT", "dot": "DOT",
-	"litecoin": "LTC", "ltc": "LTC",
-	"tron": "TRX", "trx": "TRX",
-	"pepe": "PEPE", "shiba": "SHIB", "shib": "SHIB",
-	"sui": "SUI", "aptos": "APT",
-	"hyperliquid": "HYPE", "hype": "HYPE",
-	"ethena": "ENA", "ena": "ENA",
-	"bittensor": "TAO", "tao": "TAO",
-}
-
-// polyTitleKeywords resolves the coin from the event title when tags are
-// ambiguous. Ordered longest/most-specific first.
-var polyTitleKeywords = []struct{ kw, ticker string }{
-	{"bitcoin", "BTC"}, {"ethereum", "ETH"}, {"solana", "SOL"},
-	{"ripple", "XRP"}, {"xrp", "XRP"}, {"dogecoin", "DOGE"}, {"doge", "DOGE"},
-	{"chainlink", "LINK"}, {"cardano", "ADA"}, {"avalanche", "AVAX"},
-	{"polkadot", "DOT"}, {"litecoin", "LTC"}, {"tron", "TRX"},
-}
-
-// eventCoin derives the uppercase coin ticker of a Gamma event: first from its
-// tags (label -> ticker), then falling back to keywords in the title. Returns ""
-// when no coin can be determined (e.g. stablecoin / RWA / index events).
-func eventCoin(ev *gammaEvent) string {
-	for _, tag := range ev.Tags {
-		if t, ok := polyTagToTicker[strings.ToLower(strings.TrimSpace(tag.Label))]; ok {
-			return t
+// eventHasAllTags reports whether the event carries every one of the required
+// Gamma tag ids (the per-subject AND filter that isolates one subject inside a
+// broad base tag, e.g. "Oil" within "Pyth Finance").
+func eventHasAllTags(ev *gammaEvent, requireTagIDs []int) bool {
+	for _, want := range requireTagIDs {
+		found := false
+		for _, tag := range ev.Tags {
+			if string(tag.ID) == strconv.Itoa(want) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
 		}
 	}
-	tl := strings.ToLower(ev.Title)
-	for _, kw := range polyTitleKeywords {
-		if strings.Contains(tl, kw.kw) {
-			return kw.ticker
-		}
-	}
-	return ""
+	return true
 }
 
 // polyNumRe extracts integer/decimal groups (thousands-separated) from a title,
@@ -170,24 +133,28 @@ func StartPolymarket(appCtx context.Context, markets []config.Market, retry *con
 }
 
 // tokenMeta is the per-token grouping info needed to write a book snapshot row
-// and to route it to the coin's configured storages.
+// and to route it to the subject's configured storages.
 type tokenMeta struct {
 	eventID     string
 	conditionID string
-	coin        string
+	subject     string
 }
 
-// polyCoinCfg is the per-coin (markets[].id) config: which event types to keep
-// and which storages to route to — the Polymarket analog of the per-market
-// cfgLookup used by the other exchange connectors (kucoin et al.).
-type polyCoinCfg struct {
-	types     map[string]struct{} // ABOVE / RANGE; empty = all supported types
-	terStr    bool
-	clickHStr bool
+// polySubjectCfg is the per-subject (markets[].id) config: which Gamma tags select
+// the subject's events, which event types to keep, and which storages to route to
+// — the Polymarket analog of the per-market cfgLookup used by the other exchange
+// connectors (kucoin et al.).
+type polySubjectCfg struct {
+	gammaTagID    int                 // base Gamma tag queried for this subject
+	requireTagIDs []int               // event must ALSO carry all of these tags
+	excludeTagIDs []int               // event must carry none of these tags
+	types         map[string]struct{} // ABOVE / RANGE / TOUCH / BUCKET; empty = all supported
+	terStr        bool
+	clickHStr     bool
 }
 
-// keepType reports whether a market type should be recorded for this coin.
-func (c *polyCoinCfg) keepType(mtype string) bool {
+// keepType reports whether a market type should be recorded for this subject.
+func (c *polySubjectCfg) keepType(mtype string) bool {
 	if len(c.types) == 0 {
 		return true
 	}
@@ -195,14 +162,14 @@ func (c *polyCoinCfg) keepType(mtype string) bool {
 	return ok
 }
 
-// knownMarket is a tracked outcome-token metadata row plus its coin, so that
-// resolution upserts can be routed to the coin's storages.
+// knownMarket is a tracked outcome-token metadata row plus its subject, so that
+// resolution upserts can be routed to the subject's storages.
 type knownMarket struct {
-	row  storage.PolymarketMarket
-	coin string
+	row     storage.PolymarketMarket
+	subject string
 }
 
-// polyBookItem is a raw book row plus the per-coin storage routing flags, sent
+// polyBookItem is a raw book row plus the per-subject storage routing flags, sent
 // from the reader/anchor goroutines to the batcher.
 type polyBookItem struct {
 	row storage.PolymarketBook
@@ -219,9 +186,7 @@ type polymarket struct {
 	discoveryIntSec  int
 	resolutionIntSec int
 	fullBookIntSec   int
-	coinCfg          map[string]*polyCoinCfg // coin ticker (markets[].id) -> types + storage routing
-	gammaTagID       int
-	excludeTagIDs    []int
+	subjectCfg       map[string]*polySubjectCfg // markets[].id -> tags + types + storage routing
 	autoCreateTables bool
 
 	// per-storage commit batch sizes, taken from the terminal/clickhouse connection
@@ -236,8 +201,8 @@ type polymarket struct {
 	// restarts too). Incremented atomically per persisted book row.
 	seq *uint64
 
-	// storages (terStr/clickHStr are the union across coins — used to create the
-	// commit channels/workers; per-coin routing lives in coinCfg).
+	// storages (terStr/clickHStr are the union across subjects — used to create the
+	// commit channels/workers; per-subject routing lives in subjectCfg).
 	ter        *storage.Terminal
 	clickhouse *storage.ClickHouse
 	terStr     bool
@@ -270,35 +235,41 @@ func newPolymarket(appCtx context.Context, markets []config.Market, connCfg *con
 	p := polymarket{
 		connCfg:    connCfg,
 		seq:        seq,
-		coinCfg:    make(map[string]*polyCoinCfg),
+		subjectCfg: make(map[string]*polySubjectCfg),
 		meta:       make(map[string]tokenMeta),
 		subscribed: make(map[string]struct{}),
 		known:      make(map[string]*knownMarket),
 	}
 	p.applyConfig(connCfg)
 
-	// Each configured market is a coin (id, e.g. "BTC", "ETH"); its info entries
-	// carry the event-type filter (market_types) and the storages to route to.
-	// Aggregated per coin — the Polymarket analog of the other exchanges' per-market
+	// Each configured market is a SUBJECT (id, e.g. "BTC", "SPY", "WEATHER_HIGH")
+	// defined by its Gamma discovery tags (gamma_tag_id + require/exclude); its info
+	// entries carry the event-type filter (market_types) and the storages to route to.
+	// Aggregated per subject — the Polymarket analog of the other exchanges' per-market
 	// cfgLookup. terStr/clickHStr are the union (to create channels/workers once).
 	for _, market := range markets {
-		coin := strings.ToUpper(strings.TrimSpace(market.ID))
-		if coin == "" {
+		subject := strings.ToUpper(strings.TrimSpace(market.ID))
+		if subject == "" {
 			continue
 		}
-		cc := p.coinCfg[coin]
+		cc := p.subjectCfg[subject]
 		if cc == nil {
-			cc = &polyCoinCfg{types: make(map[string]struct{})}
-			p.coinCfg[coin] = cc
+			cc = &polySubjectCfg{types: make(map[string]struct{})}
+			p.subjectCfg[subject] = cc
 		}
+		if market.GammaTagID > 0 {
+			cc.gammaTagID = market.GammaTagID
+		}
+		cc.requireTagIDs = append(cc.requireTagIDs, market.RequireTagIDs...)
+		cc.excludeTagIDs = append(cc.excludeTagIDs, market.ExcludeTagIDs...)
 		for _, info := range market.Info {
 			for _, t := range info.MarketTypes {
 				t = strings.ToUpper(strings.TrimSpace(t))
 				if t == "" {
 					continue
 				}
-				if t != "ABOVE" && t != "RANGE" && t != "TOUCH" {
-					log.Error().Str("exchange", "polymarket").Str("coin", coin).Str("market_type", t).Msg("unknown market_type in config (supported: ABOVE, RANGE, TOUCH) — nothing will match it")
+				if t != "ABOVE" && t != "RANGE" && t != "TOUCH" && t != "BUCKET" {
+					log.Error().Str("exchange", "polymarket").Str("subject", subject).Str("market_type", t).Msg("unknown market_type in config (supported: ABOVE, RANGE, TOUCH, BUCKET) — nothing will match it")
 				}
 				cc.types[t] = struct{}{}
 			}
@@ -326,8 +297,13 @@ func newPolymarket(appCtx context.Context, markets []config.Market, connCfg *con
 			}
 		}
 	}
-	if len(p.coinCfg) == 0 {
-		return errors.New("polymarket: no coins configured (set markets[].id, e.g. \"BTC\", \"ETH\")")
+	if len(p.subjectCfg) == 0 {
+		return errors.New("polymarket: no subjects configured (set markets[].id, e.g. \"BTC\", \"SPY\")")
+	}
+	for subject, cc := range p.subjectCfg {
+		if cc.gammaTagID <= 0 {
+			return fmt.Errorf("polymarket: subject %q has no gamma_tag_id (set markets[].gamma_tag_id)", subject)
+		}
 	}
 	if !p.terStr && !p.clickHStr {
 		return errors.New("polymarket: no storage configured (need terminal and/or clickhouse)")
@@ -418,14 +394,6 @@ func (p *polymarket) applyConfig(connCfg *config.Connection) {
 	p.chBookBuf = atLeastOne(connCfg.ClickHouse.OrdersBookCommitBuf)
 	p.terMarketBuf = atLeastOne(connCfg.Terminal.MarketCommitBuf)
 	p.chMarketBuf = atLeastOne(connCfg.ClickHouse.MarketCommitBuf)
-	p.gammaTagID = pc.GammaTagID
-	if p.gammaTagID <= 0 {
-		p.gammaTagID = polyDefaultGammaTagID
-	}
-	p.excludeTagIDs = pc.ExcludeTagIDs
-	if len(p.excludeTagIDs) == 0 {
-		p.excludeTagIDs = polyDefaultExcludeTagIDs
-	}
 	p.autoCreateTables = pc.AutoCreateTables
 }
 
@@ -491,7 +459,8 @@ type gammaEvent struct {
 }
 
 type gammaTag struct {
-	Label string `json:"label"`
+	ID    jsonFlexString `json:"id"`
+	Label string         `json:"label"`
 }
 
 type gammaMarket struct {
@@ -510,7 +479,7 @@ type gammaMarket struct {
 	OrderPriceMinTickSize flexFloat `json:"orderPriceMinTickSize"`
 }
 
-// discoveryLoop periodically re-discovers active markets for the configured coins.
+// discoveryLoop periodically re-discovers active markets for every configured subject.
 func (p *polymarket) discoveryLoop(ctx context.Context) error {
 	tick := time.NewTicker(time.Duration(p.discoveryIntSec) * time.Second)
 	defer tick.Stop()
@@ -532,103 +501,105 @@ func (p *polymarket) discoveryLoop(ctx context.Context) error {
 	}
 }
 
-// discover fetches active BTC markets, upserts new metadata, and reconciles the
-// websocket subscription set. When initial is true it sends one bulk subscribe
-// frame; otherwise it sends incremental subscribe/unsubscribe operations.
+// discover fetches active markets for every configured subject, upserts new
+// metadata, and reconciles the websocket subscription set. When initial is true it
+// sends one bulk subscribe frame; otherwise incremental subscribe/unsubscribe.
 func (p *polymarket) discover(ctx context.Context, initial bool) error {
-	events, err := p.fetchActiveEvents(ctx)
-	if err != nil {
-		return err
-	}
-
 	desired := make(map[string]tokenMeta)
-	newByCoin := make(map[string][]storage.PolymarketMarket) // coin -> new metadata rows
+	newBySubject := make(map[string][]storage.PolymarketMarket)
 	now := time.Now().UTC()
 
-	for _, ev := range events {
-		ev := ev
-		// Coin is determined per event from its tags (title fallback); keep only
-		// events whose coin is a configured market id (markets[].id).
-		coin := eventCoin(&ev)
-		cc, ok := p.coinCfg[coin]
-		if !ok {
-			continue
+	// Each subject has its own Gamma query (base tag + require/exclude) — the tag
+	// set IS the subject selector, so the event's subject is simply the one we are
+	// currently discovering for (no coin/ticker inference needed).
+	for subject, cc := range p.subjectCfg {
+		events, err := p.fetchActiveEvents(ctx, cc)
+		if err != nil {
+			return err
 		}
-		for _, m := range ev.Markets {
-			if !m.Active || m.Closed || !m.EnableOrderBook {
+		for _, ev := range events {
+			ev := ev
+			// AND-filter: all require tags must be present (isolates one subject
+			// inside a broad base tag, e.g. "Oil" within "Pyth Finance").
+			if !eventHasAllTags(&ev, cc.requireTagIDs) {
 				continue
 			}
-			low, high, mtype, ok := parseMarket(m.GroupItemTitle, m.Question)
-			if !ok {
-				continue // not an in-scope ABOVE/RANGE price market — skip
-			}
-			if !cc.keepType(mtype) {
-				continue // event type not selected for this coin (market_types filter)
-			}
-			tokenIDs := parseJSONStringArray(m.ClobTokenIDs)
-			outcomes := parseJSONStringArray(m.Outcomes)
-			if len(tokenIDs) == 0 {
-				continue
-			}
-
-			// Write BOTH tokens of the strike (index 0 = Yes/Up, 1 = No/Down).
-			// Both share the same bounds/market_type (No is the complement of the
-			// same strike); the reader merges Yes+No into one effective book.
-			for idx, tokenID := range tokenIDs {
-				if idx > 1 {
-					break // binary markets only ever have 2 tokens
+			for _, m := range ev.Markets {
+				if !m.Active || m.Closed || !m.EnableOrderBook {
+					continue
 				}
-				if tokenID == "" {
-					continue // skip a missing id but still consider the sibling token
+				low, high, mtype, ok := parseMarket(m.GroupItemTitle, m.Question)
+				if !ok {
+					continue // not an in-scope price/bucket market — skip
 				}
-				outcomeName := defaultOutcomeName(idx)
-				if idx < len(outcomes) && outcomes[idx] != "" {
-					outcomeName = outcomes[idx]
+				if !cc.keepType(mtype) {
+					continue // event type not selected for this subject (market_types filter)
 				}
-
-				desired[tokenID] = tokenMeta{eventID: string(ev.ID), conditionID: m.ConditionID, coin: coin}
-
-				p.mu.RLock()
-				_, seen := p.known[tokenID]
-				p.mu.RUnlock()
-				if seen {
+				tokenIDs := parseJSONStringArray(m.ClobTokenIDs)
+				outcomes := parseJSONStringArray(m.Outcomes)
+				if len(tokenIDs) == 0 {
 					continue
 				}
 
-				row := storage.PolymarketMarket{
-					EventID:        string(ev.ID),
-					EventSlug:      ev.Slug,
-					ConditionID:    m.ConditionID,
-					TokenID:        tokenID,
-					TokenIndex:     uint8(idx),
-					Question:       m.Question,
-					OutcomeName:    outcomeName,
-					MarketType:     mtype,
-					PriceLow:       low,
-					PriceHigh:      high,
-					TickSize:       float64(m.OrderPriceMinTickSize),
-					MinOrderSize:   float64(m.OrderMinSize),
-					CreatedTs:      parseISOTime(m.StartDate),
-					ExpiryTs:       parseISOTime(m.EndDate),
-					Resolved:       0,
-					WinningOutcome: nil,
-					UpdatedTs:      now,
+				// Write BOTH tokens (index 0 = Yes/Up, 1 = No/Down). Both share the
+				// same bounds/market_type; the reader merges Yes+No into one book.
+				for idx, tokenID := range tokenIDs {
+					if idx > 1 {
+						break // binary markets only ever have 2 tokens
+					}
+					if tokenID == "" {
+						continue // skip a missing id but still consider the sibling token
+					}
+					outcomeName := defaultOutcomeName(idx)
+					if idx < len(outcomes) && outcomes[idx] != "" {
+						outcomeName = outcomes[idx]
+					}
+
+					desired[tokenID] = tokenMeta{eventID: string(ev.ID), conditionID: m.ConditionID, subject: subject}
+
+					p.mu.RLock()
+					_, seen := p.known[tokenID]
+					p.mu.RUnlock()
+					if seen {
+						continue
+					}
+
+					row := storage.PolymarketMarket{
+						Subject:        subject,
+						EventID:        string(ev.ID),
+						EventSlug:      ev.Slug,
+						ConditionID:    m.ConditionID,
+						TokenID:        tokenID,
+						TokenIndex:     uint8(idx),
+						Question:       m.Question,
+						OutcomeName:    outcomeName,
+						MarketType:     mtype,
+						PriceLow:       low,
+						PriceHigh:      high,
+						TickSize:       float64(m.OrderPriceMinTickSize),
+						MinOrderSize:   float64(m.OrderMinSize),
+						CreatedTs:      parseISOTime(m.StartDate),
+						ExpiryTs:       parseISOTime(m.EndDate),
+						Resolved:       0,
+						WinningOutcome: nil,
+						UpdatedTs:      now,
+					}
+					newBySubject[subject] = append(newBySubject[subject], row)
 				}
-				newByCoin[coin] = append(newByCoin[coin], row)
 			}
 		}
 	}
 
-	// Persist new market rows (routed to each coin's storages) and register them.
+	// Persist new market rows (routed to each subject's storages) and register them.
 	newCount := 0
-	for coin, rows := range newByCoin {
-		if err := p.upsertMarkets(ctx, coin, rows); err != nil {
+	for subject, rows := range newBySubject {
+		if err := p.upsertMarkets(ctx, subject, rows); err != nil {
 			return err
 		}
 		p.mu.Lock()
 		for i := range rows {
 			r := rows[i]
-			p.known[r.TokenID] = &knownMarket{row: r, coin: coin}
+			p.known[r.TokenID] = &knownMarket{row: r, subject: subject}
 		}
 		p.mu.Unlock()
 		newCount += len(rows)
@@ -728,12 +699,12 @@ func (p *polymarket) sendSubscribe(tokenIDs []string, operation string) error {
 	return nil
 }
 
-func (p *polymarket) fetchActiveEvents(ctx context.Context) ([]gammaEvent, error) {
+func (p *polymarket) fetchActiveEvents(ctx context.Context, cc *polySubjectCfg) ([]gammaEvent, error) {
 	// Gamma caps events at 100 per page, so paginate by offset until a short page.
-	// A single tag can't return every BTC event; discovery uses a base tag
-	// (Crypto Prices) plus exclude_tag_id filters, then keeps only BTC markets.
+	// Query the subject's base tag + exclude_tag_id filters; the require tags are
+	// applied by the caller (eventHasAllTags) since Gamma tag_id is a single base.
 	var excl strings.Builder
-	for _, ex := range p.excludeTagIDs {
+	for _, ex := range cc.excludeTagIDs {
 		fmt.Fprintf(&excl, "&exclude_tag_id=%d", ex)
 	}
 
@@ -741,9 +712,18 @@ func (p *polymarket) fetchActiveEvents(ctx context.Context) ([]gammaEvent, error
 	for page := 0; page < polyGammaMaxPages; page++ {
 		offset := page * polyGammaPageLimit
 		url := fmt.Sprintf("%sevents?tag_id=%d&closed=false&active=true&order=startDate&ascending=false&limit=%d&offset=%d%s",
-			config.PolymarketGammaBaseURL, p.gammaTagID, polyGammaPageLimit, offset, excl.String())
+			config.PolymarketGammaBaseURL, cc.gammaTagID, polyGammaPageLimit, offset, excl.String())
 		var events []gammaEvent
 		if err := p.getJSON(ctx, url, &events); err != nil {
+			// Gamma rejects offset-based pagination past a depth cap ("offset too
+			// large, use /events/keyset"). Don't crash the whole connector — record
+			// what we fetched and tell the operator to narrow the subject. A broad
+			// base tag (e.g. 1312 Crypto Prices) needs exclude_tag_ids to drop the
+			// high-frequency churn (e.g. 102127 "Up or Down") so the set fits.
+			if strings.Contains(err.Error(), "offset too large") || strings.Contains(err.Error(), "status 422") {
+				log.Error().Str("exchange", "polymarket").Int("gamma_tag_id", cc.gammaTagID).Int("offset", offset).Msg("Gamma offset limit reached — narrow this subject via exclude_tag_ids (e.g. 102127 'Up or Down'); recording events fetched so far")
+				break
+			}
 			return nil, err
 		}
 		all = append(all, events...)
@@ -814,7 +794,7 @@ func (p *polymarket) checkResolutions(ctx context.Context) error {
 		return nil
 	}
 
-	updatedByCoin := make(map[string][]storage.PolymarketMarket)
+	updatedBySubject := make(map[string][]storage.PolymarketMarket)
 	var resolvedTokens []string
 	for conditionID := range conds {
 		select {
@@ -853,15 +833,15 @@ func (p *polymarket) checkResolutions(ctx context.Context) error {
 			woCopy := wo
 			kn.row.WinningOutcome = &woCopy
 			kn.row.UpdatedTs = time.Now().UTC()
-			updatedByCoin[kn.coin] = append(updatedByCoin[kn.coin], kn.row)
+			updatedBySubject[kn.subject] = append(updatedBySubject[kn.subject], kn.row)
 			resolvedTokens = append(resolvedTokens, tok)
 		}
 		p.mu.Unlock()
 	}
 
 	updated := 0
-	for coin, rows := range updatedByCoin {
-		if err := p.upsertMarkets(ctx, coin, rows); err != nil {
+	for subject, rows := range updatedBySubject {
+		if err := p.upsertMarkets(ctx, subject, rows); err != nil {
 			return err
 		}
 		updated += len(rows)
@@ -890,12 +870,12 @@ func (p *polymarket) fetchCLOBMarket(ctx context.Context, conditionID string) (*
 }
 
 // upsertMarkets commits (ReplacingMergeTree upsert) market rows to the storages
-// configured for the given coin (per-coin routing, like the other exchanges).
-func (p *polymarket) upsertMarkets(ctx context.Context, coin string, rows []storage.PolymarketMarket) error {
+// configured for the given subject (per-subject routing, like the other exchanges).
+func (p *polymarket) upsertMarkets(ctx context.Context, subject string, rows []storage.PolymarketMarket) error {
 	if len(rows) == 0 {
 		return nil
 	}
-	cc := p.coinCfg[coin]
+	cc := p.subjectCfg[subject]
 	if cc == nil {
 		return nil
 	}
@@ -1076,12 +1056,13 @@ func (p *polymarket) persistBook(ctx context.Context, tokenID, msgType, data, ha
 	if !ok {
 		return nil
 	}
-	cc := p.coinCfg[meta.coin]
+	cc := p.subjectCfg[meta.subject]
 	if cc == nil {
 		return nil
 	}
 	item := polyBookItem{
 		row: storage.PolymarketBook{
+			Subject:     meta.subject,
 			EventID:     meta.eventID,
 			ConditionID: meta.conditionID,
 			TokenID:     tokenID,
@@ -1181,7 +1162,7 @@ func (p *polymarket) fetchBook(ctx context.Context, tokenID string) (*polyBookMs
 // to its commit worker when it reaches that storage's orders_book_commit_buffer OR
 // on a periodic timer (so a strike that goes quiet does not hold its last rows
 // hostage in a partial buffer).
-// Routing is per-row (per-coin flags), mirroring the other exchanges' per-market
+// Routing is per-row (per-subject flags), mirroring the other exchanges' per-market
 // storage routing: a row goes to terminal and/or clickhouse per its coin's config.
 func (p *polymarket) bookBatcher(ctx context.Context) error {
 	tick := time.NewTicker(polyBookFlushIntSec * time.Second)
@@ -1312,9 +1293,10 @@ func (p *polymarket) getJSON(ctx context.Context, url string, target interface{}
 // The price level(s) come from groupItemTitle, and the interval SHAPE is taken from
 // the groupItemTitle prefix (the reliable signal, matching Polymarket's own labels),
 // with the question as a fallback. The coin is filtered at the event level (see
-// eventCoin), so this only decides the price-level type — the same logic fits any coin.
+// the event-level tag query), so this only decides the price-level type.
 //
-// Accepted (in-scope price levels):
+// Accepted (in-scope levels):
+//   - "N°C" / "N°C or below" / "N°C or higher"  -> BUCKET (weather temperature partition)
 //   - "↑ X" title (reach $X)                    -> TOUCH (low=nil, high=X)    [touch barrier from below]
 //   - "↓ X" title (dip to $X)                   -> TOUCH (low=X, high=nil)    [touch barrier from above]
 //   - "A-B" title / "between $X and $Y"        -> RANGE (low=min, high=max)
@@ -1347,6 +1329,24 @@ func parseMarket(groupItemTitle, question string) (low *float64, high *float64, 
 	nums := parseNums(g)
 
 	switch {
+	// WEATHER BUCKET: temperature partitions carry a degree unit ("34°C",
+	// "33°C or below", "43°C or higher"). "N or below" -> (nil, N); "N or higher/
+	// above" -> (N, nil); bare "N" -> exact (N, N). Gated on the degree symbol so it
+	// never touches price markets.
+	case strings.Contains(g, "°"):
+		if len(nums) >= 1 {
+			n := nums[0]
+			gl := strings.ToLower(g)
+			switch {
+			case strings.Contains(gl, "below") || strings.Contains(gl, "or lower"):
+				return nil, &n, "BUCKET", true
+			case strings.Contains(gl, "above") || strings.Contains(gl, "higher") || strings.Contains(gl, "or more"):
+				return &n, nil, "BUCKET", true
+			default:
+				lo, hi := n, n
+				return &lo, &hi, "BUCKET", true
+			}
+		}
 	// TOUCH upward barrier: "↑ X" (reach $X) -> high = barrier.
 	case strings.HasPrefix(g, polyArrowUp):
 		if len(nums) >= 1 {

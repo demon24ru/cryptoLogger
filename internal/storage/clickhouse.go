@@ -152,7 +152,7 @@ func (c *ClickHouse) CommitPolymarketBook(appCtx context.Context, data []Polymar
 	if err != nil {
 		return err
 	}
-	stmt, err := tx.Prepare("INSERT INTO polymarket_book (exchange, event_id, condition_id, token_id, timestamp, seq, msg_type, data, book_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+	stmt, err := tx.Prepare("INSERT INTO polymarket_book (exchange, subject, event_id, condition_id, token_id, timestamp, seq, msg_type, data, book_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -163,7 +163,7 @@ func (c *ClickHouse) CommitPolymarketBook(appCtx context.Context, data []Polymar
 		// Pass time.Time directly (driver uses UnixNano, tz-agnostic). Do NOT
 		// pass a formatted string: the driver's DateTime string-parse path
 		// re-interprets in time.Local and would corrupt values on a non-UTC host.
-		_, err := stmt.Exec("polymarket", book.EventID, book.ConditionID, book.TokenID, book.Timestamp.UTC(), book.Seq, book.MsgType, book.Data, book.BookHash)
+		_, err := stmt.Exec("polymarket", book.Subject, book.EventID, book.ConditionID, book.TokenID, book.Timestamp.UTC(), book.Seq, book.MsgType, book.Data, book.BookHash)
 		if err != nil {
 			return err
 		}
@@ -181,7 +181,7 @@ func (c *ClickHouse) CommitPolymarketMarket(appCtx context.Context, data []Polym
 	if err != nil {
 		return err
 	}
-	stmt, err := tx.Prepare("INSERT INTO polymarket_market (event_id, event_slug, condition_id, token_id, token_index, question, outcome_name, market_type, price_low, price_high, tick_size, min_order_size, created_ts, expiry_ts, resolved, winning_outcome, updated_ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+	stmt, err := tx.Prepare("INSERT INTO polymarket_market (subject, event_id, event_slug, condition_id, token_id, token_index, question, outcome_name, market_type, price_low, price_high, tick_size, min_order_size, created_ts, expiry_ts, resolved, winning_outcome, updated_ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -210,7 +210,7 @@ func (c *ClickHouse) CommitPolymarketMarket(appCtx context.Context, data []Polym
 		// Unix()/UnixNano() and is tz-agnostic and correct for both DateTime and
 		// DateTime64 columns.
 		_, err := stmt.Exec(
-			mkt.EventID, mkt.EventSlug, mkt.ConditionID, mkt.TokenID, mkt.TokenIndex,
+			mkt.Subject, mkt.EventID, mkt.EventSlug, mkt.ConditionID, mkt.TokenID, mkt.TokenIndex,
 			mkt.Question, mkt.OutcomeName, mkt.MarketType, priceLow, priceHigh, mkt.TickSize,
 			mkt.MinOrderSize, mkt.CreatedTs.UTC(),
 			mkt.ExpiryTs.UTC(), mkt.Resolved, winningOutcome,

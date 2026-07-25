@@ -56,6 +56,7 @@ type OrdersBook struct {
 // it stays monotonic across process restarts too). BookHash is the Polymarket book
 // checksum AFTER this message.
 type PolymarketBook struct {
+	Subject     string // configured markets[].id (e.g. "BTC", "SPY", "WEATHER_HIGH")
 	EventID     string
 	ConditionID string
 	TokenID     string
@@ -72,6 +73,7 @@ type PolymarketBook struct {
 // the row is versioned by UpdatedTs (ReplacingMergeTree). PriceLow/PriceHigh
 // and WinningOutcome are nullable (nil => NULL). See REAL_DATA_SCHEMA.md.
 type PolymarketMarket struct {
+	Subject        string // configured markets[].id (e.g. "BTC", "SPY", "WEATHER_HIGH")
 	EventID        string
 	EventSlug      string
 	ConditionID    string

@@ -34,6 +34,15 @@ func TestParseMarket(t *testing.T) {
 		// TOUCH: "↑ X" = reach up to X (high=barrier), "↓ X" = dip down to X (low=barrier).
 		{"touch-up", "↑ 100,000", "Will Bitcoin reach $100,000 in July?", "TOUCH", nil, f(100000)},
 		{"touch-down", "↓ 60,000", "Will Bitcoin dip to $60,000 in July?", "TOUCH", f(60000), nil},
+		{"touch-up-dollar", "↑ $130", "Will WTI Crude Oil (WTI) hit (HIGH) $130 in July?", "TOUCH", nil, f(130)},
+
+		// Finance ABOVE: "closes above $X" with a $-prefixed bare-number title.
+		{"finance-above", "$95", "WTI Crude Oil (WTI) closes above $95 on July 27?", "ABOVE", f(95), nil},
+
+		// WEATHER BUCKET: exact "N°C", and the "or below"/"or higher" tails.
+		{"weather-exact", "34°C", "Will the highest temperature in Chengdu be 34°C on July 26?", "BUCKET", f(34), f(34)},
+		{"weather-below", "33°C or below", "Will the highest temperature in Chengdu be 33°C or below on July 26?", "BUCKET", nil, f(33)},
+		{"weather-higher", "43°C or higher", "Will the highest temperature in Chengdu be 43°C or higher on July 26?", "BUCKET", f(43), nil},
 
 		// Out of scope -> skipped (coin is filtered separately at the event level).
 		{"date-target", "by September 30, 2025", "Will Bitcoin hit $150k by September 30?", "", nil, nil},
@@ -64,32 +73,17 @@ func TestParseMarket(t *testing.T) {
 	}
 }
 
-// TestEventCoin locks in coin derivation from Gamma event tags (with title
-// fallback) — mirroring the sibling project's polymarket_adapter._extract_coin.
-func TestEventCoin(t *testing.T) {
-	ev := func(title string, tags ...string) *gammaEvent {
-		e := &gammaEvent{Title: title}
-		for _, l := range tags {
-			e.Tags = append(e.Tags, gammaTag{Label: l})
-		}
-		return e
+// TestEventHasAllTags locks in the per-subject require-tag AND filter.
+func TestEventHasAllTags(t *testing.T) {
+	ev := &gammaEvent{Tags: []gammaTag{{ID: "104466"}, {ID: "309"}, {ID: "120"}}}
+	if !eventHasAllTags(ev, []int{104466, 309}) {
+		t.Errorf("expected all tags present")
 	}
-	cases := []struct {
-		name string
-		ev   *gammaEvent
-		want string
-	}{
-		{"btc-tag", ev("Bitcoin above $60,000 on July 23?", "Bitcoin", "Crypto", "Crypto Prices"), "BTC"},
-		{"sol-tag", ev("Solana above ...", "Solana", "Crypto"), "SOL"},
-		{"eth-tag", ev("", "Ethereum"), "ETH"},
-		{"ripple-alias", ev("", "Crypto", "Ripple"), "XRP"},
-		{"btc-title-fallback", ev("Will Bitcoin outperform Gold in 2026?", "Crypto Prices", "Price Comparison"), "BTC"},
-		{"no-coin", ev("Will USDT market cap hit $200B?", "Stablecoins", "Crypto", "Crypto Prices"), ""},
+	if eventHasAllTags(ev, []int{104466, 104166}) {
+		t.Errorf("expected missing tag 104166 to fail")
 	}
-	for _, c := range cases {
-		if got := eventCoin(c.ev); got != c.want {
-			t.Errorf("%s: eventCoin=%q want %q", c.name, got, c.want)
-		}
+	if !eventHasAllTags(ev, nil) {
+		t.Errorf("empty require set should always pass")
 	}
 }
 
