@@ -1170,6 +1170,7 @@ func (p *polymarket) fullBookSweep(ctx context.Context) error {
 
 	throttle := time.NewTicker(polyFullBookThrottleMs * time.Millisecond)
 	defer throttle.Stop()
+	var noBook int
 	for _, tok := range tokens {
 		select {
 		case <-ctx.Done():
@@ -1181,6 +1182,17 @@ func (p *polymarket) fullBookSweep(ctx context.Context) error {
 			if errors.Is(err, ctx.Err()) {
 				return err
 			}
+			// /book answers 404 "No orderbook exists" in two expected cases: a
+			// freshly minted market that has no orders yet, and a market that
+			// expired/closed since discovery (CLOB drops its book, and the next
+			// discovery cycle unsubscribes the token). Neither is a failure — count
+			// it and move on instead of logging an error with a stack trace for
+			// every such token on every sweep. The websocket subscription stays, so
+			// real 'book' messages flow as soon as a book exists.
+			if isNoOrderbookErr(err) {
+				noBook++
+				continue
+			}
 			meta, _ := p.trackedMeta(tok)
 			log.Error().Err(err).Str("exchange", "polymarket").Str("subject", meta.subject).Str("token_id", tok).Msg("full-book anchor fetch failed")
 			logErrStack(err)
@@ -1191,7 +1203,17 @@ func (p *polymarket) fullBookSweep(ctx context.Context) error {
 			return err
 		}
 	}
+	if noBook > 0 {
+		log.Info().Str("exchange", "polymarket").Int("tokens", noBook).Int("subscribed", len(tokens)).Msg("full-book anchors skipped: no CLOB orderbook (market not yet traded, or already expired/closed)")
+	}
 	return nil
+}
+
+// isNoOrderbookErr reports whether err is Polymarket's "no orderbook exists" 404
+// — returned for a token whose market has no orders yet, or whose market has
+// expired/closed. Expected state, not a failure.
+func isNoOrderbookErr(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "No orderbook exists")
 }
 
 func (p *polymarket) fetchBook(ctx context.Context, tokenID string) (*polyBookMsg, error) {
