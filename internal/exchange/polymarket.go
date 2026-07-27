@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -94,16 +95,28 @@ func StartPolymarket(appCtx context.Context, markets []config.Market, retry *con
 	var retryCount int
 	lastRetryTime := time.Now()
 
+	// Subjects served by this connector. NOTE: all subjects share ONE websocket
+	// connection (like the other exchanges), so a drop/reconnect affects all of
+	// them — hence connection-level logs name the whole set, the way kucoin logs
+	// its market ids.
+	var subs []string
+	for _, v := range markets {
+		if id := strings.ToUpper(strings.TrimSpace(v.ID)); id != "" {
+			subs = append(subs, id)
+		}
+	}
+	subjects := strings.Join(subs, ",")
+
 	// Shared per-token sequence counter, seeded from wall-clock so book rows stay
 	// ordered across reconnects (this loop) AND process restarts (the seed jumps
 	// forward with time). ~1e6 headroom per ms is far beyond real message rates.
 	seq := uint64(time.Now().UnixMilli()) * 1_000_000
 
 	for {
-		log.Error().Str("exchange", "polymarket").Msg("start polymarket")
+		log.Error().Str("exchange", "polymarket").Str("subjects", subjects).Msg(fmt.Sprintf("start %s", subjects))
 		err := newPolymarket(appCtx, markets, connCfg, &seq)
 		if err != nil {
-			log.Error().Err(err).Str("exchange", "polymarket").Msg("error occurred")
+			log.Error().Err(err).Str("exchange", "polymarket").Str("subjects", subjects).Msg("error occurred")
 			if retry.Number == 0 {
 				return errors.New("not able to connect polymarket. please check the log for details")
 			}
@@ -114,18 +127,18 @@ func StartPolymarket(appCtx context.Context, markets []config.Market, retry *con
 			}
 			lastRetryTime = time.Now()
 			if retryCount > retry.Number {
-				err = fmt.Errorf("not able to connect polymarket even after %d retry", retry.Number)
-				log.Error().Err(err).Str("exchange", "polymarket").Msg("")
+				err = fmt.Errorf("not able to connect polymarket even after %d retry (subjects %s)", retry.Number, subjects)
+				log.Error().Err(err).Str("exchange", "polymarket").Str("subjects", subjects).Msg("")
 				return err
 			}
 
-			log.Error().Str("exchange", "polymarket").Int("retry", retryCount).Msg(fmt.Sprintf("retrying functions in %d seconds", retry.GapSec))
+			log.Error().Str("exchange", "polymarket").Str("subjects", subjects).Int("retry", retryCount).Msg(fmt.Sprintf("retrying functions in %d seconds %s", retry.GapSec, subjects))
 			tick := time.NewTicker(time.Duration(retry.GapSec) * time.Second)
 			select {
 			case <-tick.C:
 				tick.Stop()
 			case <-appCtx.Done():
-				log.Error().Str("exchange", "polymarket").Msg("ctx canceled, return from StartPolymarket")
+				log.Error().Str("exchange", "polymarket").Str("subjects", subjects).Msg("ctx canceled, return from StartPolymarket")
 				return appCtx.Err()
 			}
 		}
@@ -145,6 +158,7 @@ type tokenMeta struct {
 // — the Polymarket analog of the per-market cfgLookup used by the other exchange
 // connectors (kucoin et al.).
 type polySubjectCfg struct {
+	name          string              // markets[].id — carried here so logs can name the subject
 	gammaTagID    int                 // base Gamma tag queried for this subject
 	requireTagIDs []int               // event must ALSO carry all of these tags
 	excludeTagIDs []int               // event must carry none of these tags
@@ -187,6 +201,7 @@ type polymarket struct {
 	resolutionIntSec int
 	fullBookIntSec   int
 	subjectCfg       map[string]*polySubjectCfg // markets[].id -> tags + types + storage routing
+	subjects         string                     // comma-joined subject ids, for connection-level logs
 	autoCreateTables bool
 
 	// per-storage commit batch sizes, taken from the terminal/clickhouse connection
@@ -254,7 +269,7 @@ func newPolymarket(appCtx context.Context, markets []config.Market, connCfg *con
 		}
 		cc := p.subjectCfg[subject]
 		if cc == nil {
-			cc = &polySubjectCfg{types: make(map[string]struct{})}
+			cc = &polySubjectCfg{name: subject, types: make(map[string]struct{})}
 			p.subjectCfg[subject] = cc
 		}
 		if market.GammaTagID > 0 {
@@ -300,11 +315,15 @@ func newPolymarket(appCtx context.Context, markets []config.Market, connCfg *con
 	if len(p.subjectCfg) == 0 {
 		return errors.New("polymarket: no subjects configured (set markets[].id, e.g. \"BTC\", \"SPY\")")
 	}
+	subjectNames := make([]string, 0, len(p.subjectCfg))
 	for subject, cc := range p.subjectCfg {
 		if cc.gammaTagID <= 0 {
 			return fmt.Errorf("polymarket: subject %q has no gamma_tag_id (set markets[].gamma_tag_id)", subject)
 		}
+		subjectNames = append(subjectNames, subject)
 	}
+	sort.Strings(subjectNames) // stable log output
+	p.subjects = strings.Join(subjectNames, ",")
 	if !p.terStr && !p.clickHStr {
 		return errors.New("polymarket: no storage configured (need terminal and/or clickhouse)")
 	}
@@ -397,16 +416,20 @@ func (p *polymarket) applyConfig(connCfg *config.Connection) {
 	p.autoCreateTables = pc.AutoCreateTables
 }
 
+// connectWs opens the single websocket shared by ALL configured subjects (one
+// connection per connector, as with the other exchanges), so its logs name the
+// whole subject set.
 func (p *polymarket) connectWs(ctx context.Context) error {
 	ws, err := connector.NewWebsocket(ctx, &p.connCfg.WS, config.PolymarketWebsocketURL)
 	if err != nil {
 		if !errors.Is(err, ctx.Err()) {
+			log.Error().Err(err).Str("exchange", "polymarket").Str("subjects", p.subjects).Msg("websocket connect failed")
 			logErrStack(err)
 		}
 		return err
 	}
 	p.ws = ws
-	log.Info().Str("exchange", "polymarket").Msg("websocket connected")
+	log.Info().Str("exchange", "polymarket").Str("subjects", p.subjects).Msg("websocket connected")
 	return nil
 }
 
@@ -432,6 +455,7 @@ func (p *polymarket) pingWs(ctx context.Context) error {
 				if errors.Is(err, net.ErrClosed) {
 					err = errors.New("context canceled")
 				} else {
+					log.Error().Err(err).Str("exchange", "polymarket").Str("subjects", p.subjects).Msg("websocket ping failed")
 					logErrStack(err)
 				}
 				return err
@@ -509,13 +533,25 @@ func (p *polymarket) discover(ctx context.Context, initial bool) error {
 	newBySubject := make(map[string][]storage.PolymarketMarket)
 	now := time.Now().UTC()
 
+	// Subjects whose Gamma query failed this cycle. Their existing subscriptions
+	// must be left alone (a transient fetch error must not look like "this subject
+	// has no markets anymore" and unsubscribe everything it was recording).
+	failed := make(map[string]struct{})
+
 	// Each subject has its own Gamma query (base tag + require/exclude) — the tag
 	// set IS the subject selector, so the event's subject is simply the one we are
 	// currently discovering for (no coin/ticker inference needed).
 	for subject, cc := range p.subjectCfg {
 		events, err := p.fetchActiveEvents(ctx, cc)
 		if err != nil {
-			return err
+			if errors.Is(err, ctx.Err()) {
+				return err
+			}
+			// One subject's discovery failing must not tear down the shared
+			// websocket (and every other subject) — log it and carry on.
+			log.Error().Err(err).Str("exchange", "polymarket").Str("subject", subject).Int("gamma_tag_id", cc.gammaTagID).Msg("discovery failed for subject; keeping its existing subscriptions")
+			failed[subject] = struct{}{}
+			continue
 		}
 		for _, ev := range events {
 			ev := ev
@@ -591,7 +627,6 @@ func (p *polymarket) discover(ctx context.Context, initial bool) error {
 	}
 
 	// Persist new market rows (routed to each subject's storages) and register them.
-	newCount := 0
 	for subject, rows := range newBySubject {
 		if err := p.upsertMarkets(ctx, subject, rows); err != nil {
 			return err
@@ -602,17 +637,14 @@ func (p *polymarket) discover(ctx context.Context, initial bool) error {
 			p.known[r.TokenID] = &knownMarket{row: r, subject: subject}
 		}
 		p.mu.Unlock()
-		newCount += len(rows)
-	}
-	if newCount > 0 {
-		log.Info().Str("exchange", "polymarket").Int("new_tokens", newCount).Msg("discovered new markets")
+		log.Info().Str("exchange", "polymarket").Str("subject", subject).Int("new_tokens", len(rows)).Msg("discovered new markets")
 	}
 
 	// Guard against a transient empty result (Gamma returning 200 with an empty
 	// list) mass-unsubscribing every token on a periodic cycle. On the initial
 	// pass an empty set is reported by reconcileSubscriptions instead.
 	if !initial && len(desired) == 0 {
-		log.Error().Str("exchange", "polymarket").Msg("discovery returned no active markets; keeping existing subscriptions")
+		log.Error().Str("exchange", "polymarket").Str("subjects", p.subjects).Msg("discovery returned no active markets; keeping existing subscriptions")
 		return nil
 	}
 
@@ -624,10 +656,14 @@ func (p *polymarket) discover(ctx context.Context, initial bool) error {
 	p.mu.Unlock()
 
 	// Reconcile subscriptions.
-	return p.reconcileSubscriptions(desired, initial)
+	return p.reconcileSubscriptions(desired, failed, initial)
 }
 
-func (p *polymarket) reconcileSubscriptions(desired map[string]tokenMeta, initial bool) error {
+// reconcileSubscriptions syncs the websocket subscription set with the freshly
+// discovered token set. Tokens of subjects listed in failed are never
+// unsubscribed — their discovery errored this cycle, so the empty result says
+// nothing about whether their markets are gone.
+func (p *polymarket) reconcileSubscriptions(desired map[string]tokenMeta, failed map[string]struct{}, initial bool) error {
 	var toSub, toUnsub []string
 
 	p.mu.Lock()
@@ -644,18 +680,22 @@ func (p *polymarket) reconcileSubscriptions(desired map[string]tokenMeta, initia
 			}
 		}
 		for tok := range p.subscribed {
-			if _, ok := desired[tok]; !ok {
-				delete(p.subscribed, tok)
-				delete(p.meta, tok) // reader no longer needs grouping ids for it
-				toUnsub = append(toUnsub, tok)
+			if _, ok := desired[tok]; ok {
+				continue
 			}
+			if _, bad := failed[p.meta[tok].subject]; bad {
+				continue // its subject's discovery failed — keep recording it
+			}
+			delete(p.subscribed, tok)
+			delete(p.meta, tok) // reader no longer needs grouping ids for it
+			toUnsub = append(toUnsub, tok)
 		}
 	}
 	p.mu.Unlock()
 
 	if initial {
 		if len(toSub) == 0 {
-			log.Error().Str("exchange", "polymarket").Msg("no active BTC markets found on initial discovery")
+			log.Error().Str("exchange", "polymarket").Str("subjects", p.subjects).Msg("no active markets found on initial discovery")
 			return nil
 		}
 		return p.sendSubscribe(toSub, "")
@@ -721,7 +761,7 @@ func (p *polymarket) fetchActiveEvents(ctx context.Context, cc *polySubjectCfg) 
 			// base tag (e.g. 1312 Crypto Prices) needs exclude_tag_ids to drop the
 			// high-frequency churn (e.g. 102127 "Up or Down") so the set fits.
 			if strings.Contains(err.Error(), "offset too large") || strings.Contains(err.Error(), "status 422") {
-				log.Error().Str("exchange", "polymarket").Int("gamma_tag_id", cc.gammaTagID).Int("offset", offset).Msg("Gamma offset limit reached — narrow this subject via exclude_tag_ids (e.g. 102127 'Up or Down'); recording events fetched so far")
+				log.Error().Str("exchange", "polymarket").Str("subject", cc.name).Int("gamma_tag_id", cc.gammaTagID).Int("offset", offset).Msg("Gamma offset limit reached — narrow this subject via exclude_tag_ids (e.g. 102127 'Up or Down'); recording events fetched so far")
 				break
 			}
 			return nil, err
@@ -731,7 +771,7 @@ func (p *polymarket) fetchActiveEvents(ctx context.Context, cc *polySubjectCfg) 
 			break
 		}
 		if page == polyGammaMaxPages-1 {
-			log.Error().Str("exchange", "polymarket").Int("pages", polyGammaMaxPages).Msg("discovery hit the pagination cap; some active markets may be omitted")
+			log.Error().Str("exchange", "polymarket").Str("subject", cc.name).Int("gamma_tag_id", cc.gammaTagID).Int("pages", polyGammaMaxPages).Msg("discovery hit the pagination cap; some active markets may be omitted")
 		}
 	}
 	return all, nil
@@ -845,6 +885,7 @@ func (p *polymarket) checkResolutions(ctx context.Context) error {
 			return err
 		}
 		updated += len(rows)
+		log.Info().Str("exchange", "polymarket").Str("subject", subject).Int("resolved", len(rows)).Msg("updated market resolutions")
 	}
 	if updated > 0 {
 		// Resolution persisted — drop these from the working set so it does not
@@ -855,7 +896,6 @@ func (p *polymarket) checkResolutions(ctx context.Context) error {
 			delete(p.meta, tok)
 		}
 		p.mu.Unlock()
-		log.Info().Str("exchange", "polymarket").Int("resolved", updated).Msg("updated market resolutions")
 	}
 	return nil
 }
@@ -959,6 +999,9 @@ func (p *polymarket) readWs(ctx context.Context) error {
 				if errors.Is(err, net.ErrClosed) {
 					err = errors.New("context canceled")
 				} else {
+					// The socket is shared by every subject, so name them all —
+					// this drop reconnects the whole connector.
+					log.Error().Err(err).Str("exchange", "polymarket").Str("subjects", p.subjects).Msg("websocket read failed, connection will be retried")
 					if err == io.EOF {
 						err = errors.Wrap(err, "connection close by exchange server")
 					}
@@ -1138,6 +1181,8 @@ func (p *polymarket) fullBookSweep(ctx context.Context) error {
 			if errors.Is(err, ctx.Err()) {
 				return err
 			}
+			meta, _ := p.trackedMeta(tok)
+			log.Error().Err(err).Str("exchange", "polymarket").Str("subject", meta.subject).Str("token_id", tok).Msg("full-book anchor fetch failed")
 			logErrStack(err)
 			continue
 		}

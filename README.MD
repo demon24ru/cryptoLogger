@@ -634,6 +634,10 @@ Example configuration: [./examples/config.polymarket.json](./examples/config.pol
 2. Classify each market — the shape comes from the `groupItemTitle` prefix (the reliable signal): `N°C` / `N°C or below` / `N°C or higher` → `BUCKET` (weather); `↑ X` (reach $X) → `TOUCH` upward barrier; `↓ X` (dip to $X) → `TOUCH` downward barrier; `A-B` (or a `between` question) → `RANGE`; `<X` → `RANGE` lower tail; `>X` (or `greater than`) → `RANGE` upper tail; a bare number `X` with an `above` question → `ABOVE`. Then apply the `market_types` filter. `Up`/`Down` directional, `hit $X by DATE` date-target, volatility-index, dominance and comparison markets are skipped. Note: `>X` / `greater than` is the **top of a range ladder** (not a standalone `ABOVE`), so an event stays a consistent single type.
 3. For each market, **both** the Yes and No outcome tokens are subscribed and recorded (the No book adds complementary depth a reader can merge into an effective Yes book).
 
+**Connection model**
+
+All configured subjects share **one** websocket connection (one per connector, as with the other exchanges) — every subject's outcome tokens are subscribed on that single socket. So a drop/reconnect affects all subjects at once, and connection-level log lines carry a `subjects` field listing the whole set (`"subjects":"BTC,SPY,WTI"`), while per-subject work (discovery, resolution, anchor fetches) logs a `subject` field. A discovery failure for one subject is logged and skipped — it does not tear down the shared connection, and that subject's existing subscriptions are kept.
+
 **Data model**
 
 * `polymarket_book` — the **raw** CLOB stream. The writer holds no book state: it stores each websocket message verbatim as a `book` full-depth anchor or a `price_change` delta, stamped with a per-token monotonic `seq` and the Polymarket `book_hash` checksum. A reader rebuilds the book at any time `T` by taking the latest `book` anchor with `seq ≤ seq(T)`, replaying the subsequent `price_change` deltas, and verifying `book_hash` (re-anchoring on mismatch).
