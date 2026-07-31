@@ -91,6 +91,38 @@ type PolymarketMarket struct {
 	Resolved       uint8
 	WinningOutcome *uint8
 	UpdatedTs      time.Time
+	// Category is the Gamma category of the event (politics/sports/crypto/...).
+	// Empty for the configured (non-auto) subjects.
+	Category string
+}
+
+// PolymarketScreener is one screener measurement window for one outcome token
+// (table polymarket_screener). Metrics follow the canonical screener
+// (mm_engine/screener_zero_curvature.py); State is CANDIDATE/RECORDING/DROPPED
+// and InPassList carries the hysteresis-smoothed verdict used as a bot signal.
+type PolymarketScreener struct {
+	Ts          time.Time
+	Subject     string
+	Category    string
+	EventID     string
+	EventSlug   string
+	ConditionID string
+	TokenID     string
+	ExpiryTs    time.Time
+	State       string
+	Mid         float64
+	SpreadTicks float64
+	Depth       float64
+	TickSize    float64
+	TwoSided    float64
+	R2          float64
+	ResStdT     float64
+	CurvT       float64
+	JumpRate    float64
+	Passed      uint8
+	Score       float64
+	Fails       string
+	InPassList  uint8
 }
 
 // Storage represents different storage options where the ticker and trade data can be stored.
@@ -101,4 +133,5 @@ type Storage interface {
 	CommitOrdersBook(context.Context, []OrdersBook) error
 	CommitPolymarketBook(context.Context, []PolymarketBook) error
 	CommitPolymarketMarket(context.Context, []PolymarketMarket) error
+	CommitPolymarketScreener(context.Context, []PolymarketScreener) error
 }

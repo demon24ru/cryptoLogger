@@ -240,6 +240,88 @@ type Polymarket struct {
 	FullBookIntSec int `json:"full_book_interval_sec"`
 	// AutoCreateTables, if true, idempotently creates the polymarket_* tables at startup.
 	AutoCreateTables bool `json:"auto_create_tables"`
+	// Auto configures the auto-discovery screening mode (pseudo-subject 'AUTO').
+	// Strictly additive: leave it out (or set enabled=false) and the connector
+	// behaves exactly as before, recording only the configured subjects.
+	Auto PolymarketAuto `json:"auto"`
+}
+
+// PolymarketAuto contains config values for the Polymarket auto-discovery
+// screening mode: the connector scans the WHOLE Polymarket universe via Gamma,
+// lightly watches candidates (top-of-book only), runs the screener
+// (internal/screener, ported from mm_engine/screener_zero_curvature.py) and
+// decides ITSELF which markets to record fully, under the pseudo-subject 'AUTO'.
+// Zero values fall back to the defaults noted below.
+type PolymarketAuto struct {
+	// Enabled turns the whole mode on. Everything else is ignored when false.
+	Enabled bool `json:"enabled"`
+	// Storages are the storages AUTO rows are written to ("terminal" /
+	// "clickhouse"), the same choice the configured subjects make per-market.
+	// Default: clickhouse.
+	Storages []string `json:"storages"`
+
+	// ScanIntSec is how often to sweep the Gamma universe for new candidates
+	// (default 900).
+	ScanIntSec int `json:"scan_interval_sec"`
+	// PollIntSec is how often to batch-poll candidate top-of-book and run one
+	// screener window (default 300 = the canon's 5-minute grid step).
+	PollIntSec int `json:"poll_interval_sec"`
+	// ObservationWindowSec is the screener observation window and the minimum
+	// time a candidate is watched before it can be judged (default 7200 = 2h;
+	// the canon validated 2-6h).
+	ObservationWindowSec int `json:"observation_window_sec"`
+
+	// MaxRecording is the budget: at most this many auto markets are RECORDING
+	// at once (default 50). Overflow blocks NEW promotions only — a market that
+	// already started recording is always finished to resolution.
+	MaxRecording int `json:"max_recording"`
+	// MaxCandidates caps the watch list, bounding the top-of-book poll (default 400).
+	MaxCandidates int `json:"max_candidates"`
+	// HysteresisK is the number of CONSECUTIVE passing windows required to
+	// promote a candidate to RECORDING (default 2).
+	HysteresisK int `json:"hysteresis_k"`
+	// HysteresisM is the number of consecutive failing windows required to drop
+	// out of the pass list (default 1).
+	HysteresisM int `json:"hysteresis_m"`
+
+	// ScanMaxPages bounds the universe sweep. Gamma refuses offset pagination
+	// past ~2100, so the sweep is ordered by liquidity descending and takes the
+	// top ScanMaxPages*100 events (default 20 = top 2000).
+	ScanMaxPages int `json:"scan_max_pages"`
+
+	// Coarse filter — applied on Gamma fields alone, no CLOB calls.
+	// MinLiquidity is the minimum event liquidity (default 5000).
+	MinLiquidity float64 `json:"min_liquidity"`
+	// MinVolume24hr is the minimum event 24h volume (default 0 = no floor).
+	MinVolume24hr float64 `json:"min_volume_24hr"`
+	// MinHoursToExpiry skips markets about to settle (default 6).
+	MinHoursToExpiry float64 `json:"min_hours_to_expiry"`
+	// MaxHoursToExpiry skips far-dated markets (default 720 = 30 days).
+	MaxHoursToExpiry float64 `json:"max_hours_to_expiry"`
+	// MaxTickSize skips coarse-grid markets where a "2 tick" spread is huge
+	// (default 0.01).
+	MaxTickSize float64 `json:"max_tick_size"`
+
+	// FinalPhaseFrac forces in_pass_list=0 over the final fraction of a dated
+	// market's lifetime, regardless of metrics (REVIEW.md §118 — the final day
+	// of a weekly is where the loss lives). Default 0.10. The state stays
+	// RECORDING: the market is still recorded to resolution.
+	FinalPhaseFrac float64 `json:"final_phase_frac"`
+
+	// Gates overrides the screener thresholds. Any field left at 0 keeps the
+	// canon default (REVIEW.md §122).
+	Gates PolymarketGates `json:"gates"`
+}
+
+// PolymarketGates overrides the canonical screener gate thresholds. A zero field
+// means "use the canon value"; the canon is the default and the only value the
+// golden vectors are generated against, so override deliberately.
+type PolymarketGates struct {
+	MinTwoSided  float64 `json:"min_two_sided"`  // canon 0.9
+	MinSpreadMed float64 `json:"min_spread_med"` // canon 2.0 (ticks)
+	MinDepthMed  float64 `json:"min_depth_med"`  // canon 50
+	MaxJumpRate  float64 `json:"max_jump_rate"`  // canon 0.05
+	MaxResStdT   float64 `json:"max_res_std_t"`  // canon 3.0 (ticks)
 }
 
 // WS contains config values for websocket connection.

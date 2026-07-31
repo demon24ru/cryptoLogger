@@ -1,6 +1,9 @@
 package storage
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 // Idempotent auto-creation of the crypto-spot exchange tables, mirroring
 // CreatePolymarketTables. The authoritative DDL (and the source of the Enum
@@ -44,9 +47,11 @@ func (c *ClickHouse) CreateExchangeTables(appCtx context.Context) error {
 	return nil
 }
 
-// CreatePolymarketTables idempotently creates the polymarket_book and
-// polymarket_market tables. Best-effort helper so the pipeline works on a
-// fresh database; the authoritative DDL lives in scripts/clickhouse_schema.sql.
+// CreatePolymarketTables idempotently creates the polymarket_book,
+// polymarket_market and polymarket_screener tables, and applies additive column
+// migrations to tables that already exist and are being written to (see
+// polymarketMigrations). Best-effort helper so the pipeline works on a fresh
+// database; the authoritative DDL lives in scripts/clickhouse_schema.sql.
 func (c *ClickHouse) CreatePolymarketTables(appCtx context.Context) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS polymarket_book (
@@ -82,13 +87,64 @@ func (c *ClickHouse) CreatePolymarketTables(appCtx context.Context) error {
 			expiry_ts DateTime('UTC'),
 			resolved UInt8,
 			winning_outcome Nullable(UInt8),
-			updated_ts DateTime64(9, 'UTC')
+			updated_ts DateTime64(9, 'UTC'),
+			category String
 		) ENGINE = ReplacingMergeTree(updated_ts)
 		ORDER BY (condition_id, token_id)`,
+		`CREATE TABLE IF NOT EXISTS polymarket_screener (
+			ts DateTime('UTC'),
+			subject String,
+			category String,
+			event_id String,
+			event_slug String,
+			condition_id String,
+			token_id String,
+			expiry_ts DateTime('UTC'),
+			state Enum8('CANDIDATE' = 1, 'RECORDING' = 2, 'DROPPED' = 3),
+			mid Float64,
+			spread_ticks Float64,
+			depth Float64,
+			tick_size Float64,
+			two_sided Float64,
+			r2 Float64,
+			res_std_t Float64,
+			curv_t Float64,
+			jump_rate Float64,
+			passed UInt8,
+			score Float64,
+			fails String,
+			in_pass_list UInt8
+		) ENGINE = MergeTree()
+		PARTITION BY toYYYYMM(ts)
+		ORDER BY (token_id, ts)`,
 	}
 	for _, stmt := range stmts {
 		if _, err := c.DB.ExecContext(appCtx, stmt); err != nil {
 			return err
+		}
+	}
+	return c.migratePolymarketTables(appCtx)
+}
+
+// polymarketMigrations are additive schema changes applied to ALREADY EXISTING
+// tables (the live ones being written to right now), so a running deployment
+// picks up new columns without a rebuild or manual DDL. ClickHouse's
+// "ADD COLUMN IF NOT EXISTS" makes each statement idempotent, and adding a
+// column with a default is a metadata-only operation — existing rows read back
+// the default (” here) and in-flight INSERTs naming explicit columns keep
+// working. Keep this list append-only and never make it destructive.
+var polymarketMigrations = []string{
+	// category: Gamma category of the event (politics/sports/crypto/...). Empty
+	// for the pre-existing configured subjects.
+	`ALTER TABLE polymarket_market ADD COLUMN IF NOT EXISTS category String AFTER updated_ts`,
+}
+
+// migratePolymarketTables applies polymarketMigrations. A failure is returned so
+// the caller can log it; the connector treats table setup as best-effort.
+func (c *ClickHouse) migratePolymarketTables(appCtx context.Context) error {
+	for _, stmt := range polymarketMigrations {
+		if _, err := c.DB.ExecContext(appCtx, stmt); err != nil {
+			return fmt.Errorf("polymarket migration %q: %w", stmt, err)
 		}
 	}
 	return nil

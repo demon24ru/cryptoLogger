@@ -100,6 +100,45 @@ CREATE TABLE IF NOT EXISTS polymarket_market
     `expiry_ts` DateTime('UTC'),
     `resolved` UInt8,
     `winning_outcome` Nullable(UInt8),
-    `updated_ts` DateTime64(9, 'UTC')
+    `updated_ts` DateTime64(9, 'UTC'),
+    `category` String                   -- Gamma category (politics/sports/crypto/...); '' for configured subjects
 ) ENGINE = ReplacingMergeTree(updated_ts)
 ORDER BY (condition_id, token_id);
+
+-- MIGRATION for installations whose polymarket_market predates the `category`
+-- column: additive, idempotent, metadata-only. Safe to run against a live table
+-- that is being written to (existing rows read back '', in-flight INSERTs that
+-- name explicit columns keep working). The app applies this automatically at
+-- startup when auto_create_tables is on.
+ALTER TABLE polymarket_market ADD COLUMN IF NOT EXISTS `category` String AFTER `updated_ts`;
+
+-- polymarket_screener: one row per screener measurement window per tracked token
+-- (auto-discovery mode). Metrics follow the canonical screener in
+-- mm_engine/screener_zero_curvature.py. Light rows -> long retention.
+CREATE TABLE IF NOT EXISTS polymarket_screener
+(
+    `ts` DateTime('UTC'),
+    `subject` String,
+    `category` String,
+    `event_id` String,
+    `event_slug` String,
+    `condition_id` String,
+    `token_id` String,
+    `expiry_ts` DateTime('UTC'),
+    `state` Enum8('CANDIDATE' = 1, 'RECORDING' = 2, 'DROPPED' = 3),
+    `mid` Float64,
+    `spread_ticks` Float64,
+    `depth` Float64,
+    `tick_size` Float64,
+    `two_sided` Float64,
+    `r2` Float64,
+    `res_std_t` Float64,
+    `curv_t` Float64,
+    `jump_rate` Float64,
+    `passed` UInt8,
+    `score` Float64,
+    `fails` String,
+    `in_pass_list` UInt8
+) ENGINE = MergeTree()
+PARTITION BY toYYYYMM(ts)
+ORDER BY (token_id, ts);

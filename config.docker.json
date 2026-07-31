@@ -17,76 +17,6 @@
                             "storages": ["clickhouse"]
                         }
                     ]
-                },
-                {
-                    "id": "WTI",
-                    "gamma_tag_id": 309,
-                    "require_tag_ids": [104466],
-                    "info": [
-                        {
-                            "channel": "book",
-                            "connector": "websocket",
-                            "market_types": ["ABOVE", "TOUCH"],
-                            "websocket_consider_interval_sec": 0,
-                            "storages": ["clickhouse"]
-                        }
-                    ]
-                },
-                {
-                    "id": "SPY",
-                    "gamma_tag_id": 104166,
-                    "require_tag_ids": [104466],
-                    "info": [
-                        {
-                            "channel": "book",
-                            "connector": "websocket",
-                            "market_types": ["ABOVE", "TOUCH"],
-                            "websocket_consider_interval_sec": 0,
-                            "storages": ["clickhouse"]
-                        }
-                    ]
-                },
-                {
-                    "id": "XAUUSD",
-                    "gamma_tag_id": 101589,
-                    "require_tag_ids": [104466],
-                    "info": [
-                        {
-                            "channel": "book",
-                            "connector": "websocket",
-                            "market_types": ["ABOVE", "TOUCH"],
-                            "websocket_consider_interval_sec": 0,
-                            "storages": ["clickhouse"]
-                        }
-                    ]
-                },
-                {
-                    "id": "WEATHER_HIGH",
-                    "gamma_tag_id": 103040,
-                    "require_tag_ids": [104596],
-                    "info": [
-                        {
-                            "channel": "book",
-                            "connector": "websocket",
-                            "market_types": ["BUCKET"],
-                            "websocket_consider_interval_sec": 0,
-                            "storages": ["clickhouse"]
-                        }
-                    ]
-                },
-                {
-                    "id": "WEATHER_LOW",
-                    "gamma_tag_id": 103040,
-                    "require_tag_ids": [104597],
-                    "info": [
-                        {
-                            "channel": "book",
-                            "connector": "websocket",
-                            "market_types": ["BUCKET"],
-                            "websocket_consider_interval_sec": 0,
-                            "storages": ["clickhouse"]
-                        }
-                    ]
                 }
             ],
             "retry": {
@@ -144,7 +74,25 @@
             "discovery_interval_sec": 300,
             "resolution_interval_sec": 300,
             "full_book_interval_sec": 300,
-            "auto_create_tables": true
+            "auto_create_tables": true,
+            "auto": {
+                "enabled": true,
+                "storages": ["clickhouse"],
+                "scan_interval_sec": 900,
+                "poll_interval_sec": 300,
+                "observation_window_sec": 7200,
+                "max_recording": 500,
+                "max_candidates": 1000,
+                "hysteresis_k": 2,
+                "hysteresis_m": 1,
+                "scan_max_pages": 20,
+                "min_liquidity": 5000,
+                "min_volume_24hr": 0,
+                "min_hours_to_expiry": 6,
+                "max_hours_to_expiry": 720,
+                "max_tick_size": 0.01,
+                "final_phase_frac": 0.10
+            }
         }
     },
     "log": {

@@ -181,7 +181,7 @@ func (c *ClickHouse) CommitPolymarketMarket(appCtx context.Context, data []Polym
 	if err != nil {
 		return err
 	}
-	stmt, err := tx.Prepare("INSERT INTO polymarket_market (subject, event_id, event_slug, condition_id, token_id, token_index, question, outcome_name, market_type, price_low, price_high, tick_size, min_order_size, created_ts, expiry_ts, resolved, winning_outcome, updated_ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+	stmt, err := tx.Prepare("INSERT INTO polymarket_market (subject, event_id, event_slug, condition_id, token_id, token_index, question, outcome_name, market_type, price_low, price_high, tick_size, min_order_size, created_ts, expiry_ts, resolved, winning_outcome, updated_ts, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -214,7 +214,37 @@ func (c *ClickHouse) CommitPolymarketMarket(appCtx context.Context, data []Polym
 			mkt.Question, mkt.OutcomeName, mkt.MarketType, priceLow, priceHigh, mkt.TickSize,
 			mkt.MinOrderSize, mkt.CreatedTs.UTC(),
 			mkt.ExpiryTs.UTC(), mkt.Resolved, winningOutcome,
-			mkt.UpdatedTs.UTC(),
+			mkt.UpdatedTs.UTC(), mkt.Category,
+		)
+		if err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// CommitPolymarketScreener batch inserts screener measurement windows to clickHouse.
+func (c *ClickHouse) CommitPolymarketScreener(appCtx context.Context, data []PolymarketScreener) error {
+	tx, err := c.DB.Begin()
+	if err != nil {
+		return err
+	}
+	stmt, err := tx.Prepare("INSERT INTO polymarket_screener (ts, subject, category, event_id, event_slug, condition_id, token_id, expiry_ts, state, mid, spread_ticks, depth, tick_size, two_sided, r2, res_std_t, curv_t, jump_rate, passed, score, fails, in_pass_list) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for i := range data {
+		s := data[i]
+		_, err := stmt.Exec(
+			s.Ts.UTC(), s.Subject, s.Category, s.EventID, s.EventSlug, s.ConditionID,
+			s.TokenID, s.ExpiryTs.UTC(), s.State, s.Mid, s.SpreadTicks, s.Depth,
+			s.TickSize, s.TwoSided, s.R2, s.ResStdT, s.CurvT, s.JumpRate,
+			s.Passed, s.Score, s.Fails, s.InPassList,
 		)
 		if err != nil {
 			return err

@@ -39,7 +39,7 @@ Forked from [Cryptogalaxy](https://github.com/milkywaybrain/cryptogalaxy) is an 
  
 * All the data received from multiple exchanges are converted into common format and then displayed in terminal or stored to MySQL, Elasticsearch, InfluxDB, NATS, ClickHouse and S3.
  
-* Supports Polymarket prediction markets across crypto, finance and weather (`ABOVE`, `RANGE`, `TOUCH` price events and `BUCKET` temperature events). Each subject (BTC, SPY, WTI, gold, a weather station, ...) is selected by Gamma tags; the app auto-discovers its active markets and records the raw CLOB order-book stream (snapshot anchors + deltas) plus the real market resolution to ClickHouse. See the [Polymarket prediction markets](#polymarket-prediction-markets) section.
+* Supports Polymarket prediction markets across crypto, finance and weather (`ABOVE`, `RANGE`, `TOUCH` price events and `BUCKET` temperature events). Each subject (BTC, SPY, WTI, gold, a weather station, ...) is selected by Gamma tags; the app auto-discovers its active markets and records the raw CLOB order-book stream (snapshot anchors + deltas) plus the real market resolution to ClickHouse. An optional [auto-discovery screening mode](#auto-discovery-screening-mode) goes further and scans the whole Polymarket universe, scoring markets with a quality screener and deciding by itself which ones to record. See the [Polymarket prediction markets](#polymarket-prediction-markets) section.
  
 * Some exchanges impose a rate limit on the number of channel subscriptions sent to websocket connections per second and if it crosses then disconnects the connection. To avoid this, the app makes staggered requests based on the rate limit of specific exchange.
  
@@ -492,7 +492,7 @@ PARTITION BY toYYYYMMDD(timestamp)
 ORDER BY (exchange, market, timestamp);
 ```
 
-Two extra tables are used only by the `polymarket` connector (see the [Polymarket prediction markets](#polymarket-prediction-markets) section). Their ids are dynamic ERC-1155 token / `0x` condition ids, so they use plain `String` columns instead of the `Enum` columns above. The app can create them automatically at startup (`auto_create_tables`), or you can apply them from [./scripts/clickhouse_schema.sql](./scripts/clickhouse_schema.sql).
+Three extra tables are used only by the `polymarket` connector (see the [Polymarket prediction markets](#polymarket-prediction-markets) section). Their ids are dynamic ERC-1155 token / `0x` condition ids, so they use plain `String` columns instead of the `Enum` columns above. The app can create them automatically at startup (`auto_create_tables`), or you can apply them from [./scripts/clickhouse_schema.sql](./scripts/clickhouse_schema.sql).
 
 ```sql
 -- Raw CLOB stream: one row per Polymarket websocket message per outcome token
@@ -540,9 +540,43 @@ CREATE TABLE polymarket_market
     `expiry_ts` DateTime('UTC'),
     `resolved` UInt8,
     `winning_outcome` Nullable(UInt8),
-    `updated_ts` DateTime64(9, 'UTC')
+    `updated_ts` DateTime64(9, 'UTC'),
+    `category` String                   -- Gamma category; '' for the configured subjects
 ) ENGINE = ReplacingMergeTree(updated_ts)
 ORDER BY (condition_id, token_id);
+```
+
+```sql
+-- Screener metric history: one row per measurement window per watched token,
+-- written by the auto-discovery screening mode (see the Polymarket section).
+-- Metric rows are small — worth a much longer retention than the book stream.
+CREATE TABLE polymarket_screener
+(
+    `ts` DateTime('UTC'),               -- end of the measurement window
+    `subject` String,                   -- 'AUTO', or a configured subject
+    `category` String,
+    `event_id` String,
+    `event_slug` String,
+    `condition_id` String,
+    `token_id` String,
+    `expiry_ts` DateTime('UTC'),
+    `state` Enum8('CANDIDATE' = 1, 'RECORDING' = 2, 'DROPPED' = 3),
+    `mid` Float64,
+    `spread_ticks` Float64,
+    `depth` Float64,
+    `tick_size` Float64,
+    `two_sided` Float64,                -- window metrics
+    `r2` Float64,
+    `res_std_t` Float64,
+    `curv_t` Float64,
+    `jump_rate` Float64,
+    `passed` UInt8,                     -- all gates cleared in THIS window
+    `score` Float64,                    -- 0 when not passed
+    `fails` String,                     -- CSV of the failed gates
+    `in_pass_list` UInt8                -- hysteresis-smoothed verdict (signal for a consumer)
+) ENGINE = MergeTree()
+PARTITION BY toYYYYMM(ts)
+ORDER BY (token_id, ts);
 ```
 
 *Note :* The `polymarket_book` / `polymarket_market` tables are recording (writer-side) tables. A separate reader is expected to reconstruct each token's book by replaying the `book` anchors + `price_change` deltas.
@@ -593,7 +627,8 @@ Example configuration: [./examples/config.polymarket.json](./examples/config.pol
         },
         "polymarket": {
             "discovery_interval_sec": 300, "resolution_interval_sec": 300,
-            "full_book_interval_sec": 300, "auto_create_tables": true
+            "full_book_interval_sec": 300, "auto_create_tables": true,
+            "auto": { "enabled": false, "storages": ["clickhouse"], "max_recording": 50 }
         }
     },
     "log": { "level": "info", "file_path": "./cryptogalaxy.log" }
@@ -626,7 +661,9 @@ Example configuration: [./examples/config.polymarket.json](./examples/config.pol
 
 * **connection : polymarket : full_book_interval_sec** : How often to force a REST full-book snapshot anchor per subscribed token (default 300). This bounds how many deltas a reader must replay and provides re-sync points. A fresh anchor sweep also runs on every (re)connect.
 
-* **connection : polymarket : auto_create_tables** : If `true`, the `polymarket_book` / `polymarket_market` tables are created automatically at startup (best-effort). Otherwise apply [./scripts/clickhouse_schema.sql](./scripts/clickhouse_schema.sql).
+* **connection : polymarket : auto_create_tables** : If `true`, the `polymarket_book` / `polymarket_market` / `polymarket_screener` tables are created automatically at startup, and additive column migrations (e.g. `category`) are applied to existing ones (best-effort). Otherwise apply [./scripts/clickhouse_schema.sql](./scripts/clickhouse_schema.sql).
+
+* **connection : polymarket : auto** : The auto-discovery screening mode — see [Auto-discovery screening mode](#auto-discovery-screening-mode) below. Omit the block (or set `enabled: false`) and the connector records only the configured subjects, exactly as before.
 
 **How discovery & classification works**
 
@@ -644,6 +681,51 @@ All configured subjects share **one** websocket connection (one per connector, a
 * `polymarket_market` — one row per outcome token with its `subject`, `market_type`, price/level bounds (`price_low` / `price_high`; for `BUCKET`, exact `N°C` is `low = high = N`), tick / min-order size, and expiry. Once the market settles, `resolved` and `winning_outcome` are upserted from the **real** Polymarket resolution (CLOB `winner`), not computed from any underlying.
 
 *Note :* These are recording-side tables (CLOB book + real resolution only). No underlying spot/price series is written — that is out of scope for this connector.
+
+### Auto-discovery screening mode
+
+The configured subjects above name the markets they want up front. The **auto mode** does the opposite: it sweeps the **whole** Polymarket universe, keeps a cheap watch on the plausible markets, scores them with a market-quality screener, and **decides itself** which ones are worth recording in full. Promoted markets are recorded under the pseudo-subject `AUTO` until they resolve, so the recorder builds its own dataset of the market types that are actually tradable, instead of only the ones an operator thought to configure.
+
+It is strictly additive: the configured subjects keep running unchanged alongside it, and the mode can be switched off entirely.
+
+```
+UNIVERSE (Gamma, top by liquidity)
+   │  coarse filter — liquidity, quotable, tick size, time to expiry (no CLOB calls)
+   ▼
+CANDIDATE  ──  batched top-of-book poll every 5 min, screened over a 2 h window
+   │  K consecutive passing windows
+   ▼
+RECORDING  ──  full book stream + metadata + resolution, until the market settles
+```
+
+**The screener.** Over each observation window a token's mid series is sampled onto a 5-minute grid and reduced to: `two_sided` (fraction of the window with a live two-sided book), `spread_ticks` (median spread), `depth` (median touch size), `r2` (linearity of `mid(t)`), `res_std_t` (noise around that line), `curv_t` (curvature) and `jump_rate` (fraction of steps that are repricing jumps). A market passes only if it clears **every** gate — book ≥ 90 %, spread ≥ 2 ticks, depth ≥ 50, jumps ≤ 5 %, noise ≤ 3 ticks — and passing markets are ranked by `spread × min(depth, 500) × (1 − 5 × jump_rate)`. The implementation lives in [`internal/screener`](./internal/screener) and is a port of an external reference implementation, pinned to it by golden vectors in `screener_test.go`; the thresholds (and only the thresholds) are configurable.
+
+**Hysteresis and the budget.** A candidate must pass `hysteresis_k` **consecutive** windows before it is promoted, and leaves the pass list after `hysteresis_m` failing ones, so the promoted set does not flap on a transient book outage. At most `max_recording` auto markets record at once; when the budget is full the best-scoring candidates take the free slots and the rest keep being observed. **A recording that has started is never evicted** — it always runs to resolution, because a market's failing periods are as valuable to a later analysis as its passing ones. Losing the pass list only clears `in_pass_list` (a signal for a downstream consumer), it never stops the recording. For dated markets the final `final_phase_frac` of the lifetime is forced out of the pass list regardless of metrics — that end-of-life window behaves very differently from the rest of the market's life.
+
+**Cost.** One bounded Gamma sweep per `scan_interval_sec` and a single batched `POST /books` per `poll_interval_sec` covering the entire watch list (up to 400 tokens per request), which leaves a large margin against the API rate limits. Rate-limited and transient failures back off and retry; nothing here can tear down the connector or disturb the configured subjects.
+
+**Auto mode configuration options**
+
+* **connection : polymarket : auto : enabled** : Turns the mode on. Everything below is ignored when `false` (the default).
+* **connection : polymarket : auto : storages** : `terminal` and/or `clickhouse` for the `AUTO` rows (default `clickhouse`).
+* **connection : polymarket : auto : scan_interval_sec** : How often to sweep the Gamma universe for new candidates (default 900).
+* **connection : polymarket : auto : poll_interval_sec** : How often to batch-poll candidate top-of-book and score one window (default 300, matching the screener's 5-minute grid step).
+* **connection : polymarket : auto : observation_window_sec** : The screener observation window, and the minimum time a candidate is watched before it can be judged (default 7200 = 2 h).
+* **connection : polymarket : auto : max_recording** : Budget — the maximum number of auto markets recording at once (default 50).
+* **connection : polymarket : auto : max_candidates** : Cap on the watch list, which bounds the top-of-book poll (default 400).
+* **connection : polymarket : auto : hysteresis_k** : Consecutive passing windows required to promote (default 2).
+* **connection : polymarket : auto : hysteresis_m** : Consecutive failing windows required to leave the pass list (default 1).
+* **connection : polymarket : auto : scan_max_pages** : Bounds the universe sweep. Gamma refuses offset pagination past a depth cap, so the sweep is ordered by liquidity descending and takes the top `scan_max_pages × 100` events (default 20 = top 2000). The unreachable tail is the illiquid tail, which the coarse filter drops anyway.
+* **connection : polymarket : auto : min_liquidity** / **min_volume_24hr** : Event-level coarse thresholds (defaults 5000 / 0 = no floor).
+* **connection : polymarket : auto : min_hours_to_expiry** / **max_hours_to_expiry** : Only watch markets inside this time-to-expiry window (defaults 6 / 720 hours). A market must also have room for a full observation window before it settles.
+* **connection : polymarket : auto : max_tick_size** : Skip coarse-grid markets, where a "2 tick" spread is a large fraction of the price (default 0.01).
+* **connection : polymarket : auto : final_phase_frac** : The final fraction of a dated market's lifetime that is forced out of the pass list regardless of metrics (default 0.10). Without a start date this falls back to the last day before expiry.
+* **connection : polymarket : auto : gates** : Screener threshold overrides — `min_two_sided`, `min_spread_med`, `min_depth_med`, `max_jump_rate`, `max_res_std_t`. Any field left out keeps the reference value. Override deliberately: these are the values the golden vectors are generated against.
+
+**What the auto mode writes**
+
+* `polymarket_book` / `polymarket_market` — same tables, same formats, with `subject = 'AUTO'` and the Gamma category in `polymarket_market.category`. Markets whose question is not a recognisable price/level form (politics, sports, ...) are recorded with `market_type = 'GENERIC'` and `price_low` / `price_high` NULL — a screener and a downstream consumer need no price bounds, and resolution needs only `winning_outcome`. A level is only read as a price when it carries a **unit** (a currency symbol or a degree sign): across the whole universe a bare number is usually a score or a count, not a level — *"Exact Score: Club Puebla 3 - 2 CD Guadalajara"* must not become a `RANGE` from $2 to $3. `GENERIC` is therefore the most common label in auto mode, not a sign of a parsing failure.
+* `polymarket_screener` — one row per measurement window per watched token, carrying the state (`CANDIDATE` / `RECORDING` / `DROPPED`), every metric above, `passed` / `score` / `fails` for that window and the hysteresis-smoothed `in_pass_list`. Metric rows are small, so this table is worth a long retention: it is the history of how each market behaved, including the ones that never promoted.
 
 ## Output screenshots
  

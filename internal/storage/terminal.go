@@ -76,6 +76,21 @@ func (t *Terminal) CommitPolymarketBook(_ context.Context, data []PolymarketBook
 	return nil
 }
 
+// CommitPolymarketScreener batch outputs screener windows to terminal.
+func (t *Terminal) CommitPolymarketScreener(_ context.Context, data []PolymarketScreener) error {
+	for i := range data {
+		s := data[i]
+		verdict := "fail"
+		if s.Passed == 1 {
+			verdict = "PASS"
+		}
+		fmt.Fprintf(t.out, "%-12s%-8s%-10s%-25s %-5s score=%-9.0f spread=%-5.1ft depth=%-6.0f jump=%-5.1f%% noise=%-5.1ft pass_list=%d %s\n\n",
+			"PolyScreen", s.Subject, s.State, s.TokenID, verdict, s.Score, s.SpreadTicks,
+			s.Depth, 100*s.JumpRate, s.ResStdT, s.InPassList, s.Fails)
+	}
+	return nil
+}
+
 // CommitPolymarketMarket batch outputs input Polymarket market metadata to terminal.
 func (t *Terminal) CommitPolymarketMarket(_ context.Context, data []PolymarketMarket) error {
 	for i := range data {

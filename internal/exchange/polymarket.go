@@ -112,9 +112,19 @@ func StartPolymarket(appCtx context.Context, markets []config.Market, retry *con
 	// forward with time). ~1e6 headroom per ms is far beyond real message rates.
 	seq := uint64(time.Now().UnixMilli()) * 1_000_000
 
+	// The auto-discovery screener (if enabled) is owned by THIS loop, not by the
+	// connector instance, so its watch list and — crucially — its RECORDING set
+	// survive a websocket reconnect. Otherwise every drop would restart the
+	// observation windows from zero and a promoted market would stop being
+	// recorded until it re-earned promotion hours later.
+	var auto *polyAuto
+	if connCfg.Polymarket.Auto.Enabled {
+		auto = newPolyAuto(connCfg.Polymarket.Auto)
+	}
+
 	for {
 		log.Error().Str("exchange", "polymarket").Str("subjects", subjects).Msg(fmt.Sprintf("start %s", subjects))
-		err := newPolymarket(appCtx, markets, connCfg, &seq)
+		err := newPolymarket(appCtx, markets, connCfg, &seq, auto)
 		if err != nil {
 			log.Error().Err(err).Str("exchange", "polymarket").Str("subjects", subjects).Msg("error occurred")
 			if retry.Number == 0 {
@@ -165,6 +175,10 @@ type polySubjectCfg struct {
 	types         map[string]struct{} // ABOVE / RANGE / TOUCH / BUCKET; empty = all supported
 	terStr        bool
 	clickHStr     bool
+	// auto marks the pseudo-subject 'AUTO' owned by the auto-discovery screener
+	// (polymarket_auto.go). It has no Gamma tag query of its own — its markets
+	// are chosen by the screener — so tag-based discovery must skip it.
+	auto bool
 }
 
 // keepType reports whether a market type should be recorded for this subject.
@@ -204,6 +218,10 @@ type polymarket struct {
 	subjects         string                     // comma-joined subject ids, for connection-level logs
 	autoCreateTables bool
 
+	// auto is the auto-discovery screener, or nil when the mode is disabled.
+	// It outlives this connector instance (owned by StartPolymarket).
+	auto *polyAuto
+
 	// per-storage commit batch sizes, taken from the terminal/clickhouse connection
 	// config (book -> orders_book_commit_buffer, metadata -> market_commit_buffer).
 	terBookBuf   int
@@ -238,7 +256,7 @@ type polymarket struct {
 	wsMu sync.Mutex
 }
 
-func newPolymarket(appCtx context.Context, markets []config.Market, connCfg *config.Connection, seq *uint64) error {
+func newPolymarket(appCtx context.Context, markets []config.Market, connCfg *config.Connection, seq *uint64, auto *polyAuto) error {
 	// Own a cancelable context so any early return (e.g. initial discovery
 	// failure) cancels and unblocks the goroutines already registered on the
 	// errgroup — otherwise pingWs / closeWsConnOnError / commit workers would
@@ -312,12 +330,20 @@ func newPolymarket(appCtx context.Context, markets []config.Market, connCfg *con
 			}
 		}
 	}
+	// The auto-discovery screener records under its own pseudo-subject, so it
+	// needs an entry in subjectCfg for the storage routing that persistBook /
+	// upsertMarkets do — but NOT a Gamma tag query: it picks its own markets.
+	if auto != nil {
+		p.auto = auto
+		p.subjectCfg[polyAutoSubject] = p.newAutoSubjectCfg(connCfg.Polymarket.Auto)
+	}
+
 	if len(p.subjectCfg) == 0 {
 		return errors.New("polymarket: no subjects configured (set markets[].id, e.g. \"BTC\", \"SPY\")")
 	}
 	subjectNames := make([]string, 0, len(p.subjectCfg))
 	for subject, cc := range p.subjectCfg {
-		if cc.gammaTagID <= 0 {
+		if !cc.auto && cc.gammaTagID <= 0 {
 			return fmt.Errorf("polymarket: subject %q has no gamma_tag_id (set markets[].gamma_tag_id)", subject)
 		}
 		subjectNames = append(subjectNames, subject)
@@ -376,12 +402,30 @@ func newPolymarket(appCtx context.Context, markets []config.Market, connCfg *con
 		return err
 	}
 
+	// Re-subscribe the auto-discovered markets that were already RECORDING
+	// before this (re)connect, so a websocket drop never interrupts a recording
+	// that must run to resolution.
+	if p.auto != nil {
+		p.auto.attach(&p)
+		if err := p.auto.resubscribeRecording(); err != nil {
+			return err
+		}
+	}
+
 	polyErrGroup.Go(func() error {
 		return p.readWs(ctx)
 	})
 	polyErrGroup.Go(func() error {
 		return p.discoveryLoop(ctx)
 	})
+	if p.auto != nil {
+		polyErrGroup.Go(func() error {
+			return p.auto.scanLoop(ctx)
+		})
+		polyErrGroup.Go(func() error {
+			return p.auto.pollLoop(ctx)
+		})
+	}
 	polyErrGroup.Go(func() error {
 		return p.resolutionLoop(ctx)
 	})
@@ -480,6 +524,13 @@ type gammaEvent struct {
 	Title   string         `json:"title"`
 	Tags    []gammaTag     `json:"tags"`
 	Markets []gammaMarket  `json:"markets"`
+
+	// Activity fields, used only by the auto-discovery coarse filter
+	// (polymarket_auto.go) to rank/screen the universe without touching CLOB.
+	Liquidity     flexFloat `json:"liquidity"`
+	LiquidityClob flexFloat `json:"liquidityClob"`
+	Volume24hr    flexFloat `json:"volume24hr"`
+	Competitive   flexFloat `json:"competitive"`
 }
 
 type gammaTag struct {
@@ -501,6 +552,17 @@ type gammaMarket struct {
 	EnableOrderBook       bool      `json:"enableOrderBook"`
 	OrderMinSize          flexFloat `json:"orderMinSize"`
 	OrderPriceMinTickSize flexFloat `json:"orderPriceMinTickSize"`
+
+	// Activity fields, used only by the auto-discovery coarse filter
+	// (polymarket_auto.go). AcceptingOrders is the CLOB-side "you may quote
+	// here" flag; the rest are cheap liveness hints Gamma already carries.
+	AcceptingOrders  bool      `json:"acceptingOrders"`
+	Spread           flexFloat `json:"spread"`
+	BestBid          flexFloat `json:"bestBid"`
+	BestAsk          flexFloat `json:"bestAsk"`
+	LastTradePrice   flexFloat `json:"lastTradePrice"`
+	VolumeNum        flexFloat `json:"volumeNum"`
+	RewardsMaxSpread flexFloat `json:"rewardsMaxSpread"`
 }
 
 // discoveryLoop periodically re-discovers active markets for every configured subject.
@@ -542,6 +604,9 @@ func (p *polymarket) discover(ctx context.Context, initial bool) error {
 	// set IS the subject selector, so the event's subject is simply the one we are
 	// currently discovering for (no coin/ticker inference needed).
 	for subject, cc := range p.subjectCfg {
+		if cc.auto {
+			continue // the screener chooses AUTO's markets; there is no tag query
+		}
 		events, err := p.fetchActiveEvents(ctx, cc)
 		if err != nil {
 			if errors.Is(err, ctx.Err()) {
@@ -682,6 +747,10 @@ func (p *polymarket) reconcileSubscriptions(desired map[string]tokenMeta, failed
 		for tok := range p.subscribed {
 			if _, ok := desired[tok]; ok {
 				continue
+			}
+			if p.meta[tok].subject == polyAutoSubject {
+				continue // owned by the screener, not by tag discovery — it is
+				// recorded until resolution and released there
 			}
 			if _, bad := failed[p.meta[tok].subject]; bad {
 				continue // its subject's discovery failed — keep recording it
@@ -836,6 +905,7 @@ func (p *polymarket) checkResolutions(ctx context.Context) error {
 
 	updatedBySubject := make(map[string][]storage.PolymarketMarket)
 	var resolvedTokens []string
+	var autoResolved []string
 	for conditionID := range conds {
 		select {
 		case <-ctx.Done():
@@ -875,6 +945,9 @@ func (p *polymarket) checkResolutions(ctx context.Context) error {
 			kn.row.UpdatedTs = time.Now().UTC()
 			updatedBySubject[kn.subject] = append(updatedBySubject[kn.subject], kn.row)
 			resolvedTokens = append(resolvedTokens, tok)
+			if kn.subject == polyAutoSubject {
+				autoResolved = append(autoResolved, tok)
+			}
 		}
 		p.mu.Unlock()
 	}
@@ -896,6 +969,31 @@ func (p *polymarket) checkResolutions(ctx context.Context) error {
 			delete(p.meta, tok)
 		}
 		p.mu.Unlock()
+	}
+
+	// An auto-discovered market that has resolved is a COMPLETED recording: it
+	// is what the mode exists to produce. Unsubscribe it (tag discovery never
+	// will — the screener owns these tokens), free its budget slot and close out
+	// its screener history. The configured subjects' tokens are left exactly as
+	// before: their next discovery cycle reconciles them.
+	if len(autoResolved) > 0 && p.auto != nil {
+		p.mu.Lock()
+		var toUnsub []string
+		for _, tok := range autoResolved {
+			if _, ok := p.subscribed[tok]; ok {
+				delete(p.subscribed, tok)
+				toUnsub = append(toUnsub, tok)
+			}
+		}
+		p.mu.Unlock()
+		if len(toUnsub) > 0 {
+			if err := p.sendSubscribe(toUnsub, "unsubscribe"); err != nil {
+				return err
+			}
+		}
+		if err := p.auto.commitScreener(ctx, p.auto.releaseResolved(autoResolved)); err != nil {
+			return err
+		}
 	}
 	return nil
 }
