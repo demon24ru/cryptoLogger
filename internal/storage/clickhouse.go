@@ -226,6 +226,32 @@ func (c *ClickHouse) CommitPolymarketMarket(appCtx context.Context, data []Polym
 	return nil
 }
 
+// CommitPolymarketTrade batch inserts Polymarket executed trades to clickHouse.
+func (c *ClickHouse) CommitPolymarketTrade(appCtx context.Context, data []PolymarketTrade) error {
+	tx, err := c.DB.Begin()
+	if err != nil {
+		return err
+	}
+	stmt, err := tx.Prepare("INSERT INTO polymarket_trade (exchange, subject, event_id, condition_id, token_id, timestamp, seq, price, size, side, fee_rate_bps, tx_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for i := range data {
+		t := data[i]
+		_, err := stmt.Exec("polymarket", t.Subject, t.EventID, t.ConditionID, t.TokenID,
+			t.Timestamp.UTC(), t.Seq, t.Price, t.Size, t.Side, t.FeeRateBps, t.TxHash)
+		if err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return nil
+}
+
 // CommitPolymarketScreener batch inserts screener measurement windows to clickHouse.
 func (c *ClickHouse) CommitPolymarketScreener(appCtx context.Context, data []PolymarketScreener) error {
 	tx, err := c.DB.Begin()

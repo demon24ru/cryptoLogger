@@ -492,7 +492,9 @@ PARTITION BY toYYYYMMDD(timestamp)
 ORDER BY (exchange, market, timestamp);
 ```
 
-Three extra tables are used only by the `polymarket` connector (see the [Polymarket prediction markets](#polymarket-prediction-markets) section). Their ids are dynamic ERC-1155 token / `0x` condition ids, so they use plain `String` columns instead of the `Enum` columns above. The app can create them automatically at startup (`auto_create_tables`), or you can apply them from [./scripts/clickhouse_schema.sql](./scripts/clickhouse_schema.sql).
+*Note :* **Every** table this app creates — the ones above and the Polymarket ones below — shares **one rotation interval: 10 days** (`TTL ... + INTERVAL 10 DAY`), after which the data is dropped. There is no cold-storage tier: everything stays on the main storage. The interval lives in a single place per side (`RetentionDays` in [internal/storage/clickhouse_ddl.go](./internal/storage/clickhouse_ddl.go), mirrored in [./scripts/clickhouse_schema.sql](./scripts/clickhouse_schema.sql)). Existing installations are retuned at startup, or you can apply the `ALTER TABLE ... MODIFY TTL` statements from the schema script yourself — `MODIFY TTL` replaces the whole previous expression, so it also removes the old `50 DAY TO DISK 'cold_storage'` move rule.
+
+Four extra tables are used only by the `polymarket` connector (see the [Polymarket prediction markets](#polymarket-prediction-markets) section). Their ids are dynamic ERC-1155 token / `0x` condition ids, so they use plain `String` columns instead of the `Enum` columns above. They are rotated on the same shared interval as the tables above. The app can create them automatically at startup (`auto_create_tables`), or you can apply them from [./scripts/clickhouse_schema.sql](./scripts/clickhouse_schema.sql).
 
 ```sql
 -- Raw CLOB stream: one row per Polymarket websocket message per outcome token
@@ -514,7 +516,7 @@ CREATE TABLE polymarket_book
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
 ORDER BY (token_id, seq)
-TTL toDateTime(timestamp, 'UTC') + INTERVAL 5 MONTH;
+TTL toDateTime(timestamp, 'UTC') + INTERVAL 10 DAY;
 ```
 
 ```sql
@@ -550,6 +552,32 @@ ORDER BY (condition_id, token_id);
 -- Screener metric history: one row per measurement window per watched token,
 -- written by the auto-discovery screening mode (see the Polymarket section).
 -- Metric rows are small — worth a much longer retention than the book stream.
+-- Executed trades of an outcome token (CLOB websocket `last_trade_price`).
+-- Selected per subject with the `trade` channel, or for auto-discovered markets
+-- with polymarket.auto.record_trades. ReplacingMergeTree over the full trade
+-- identity, so a websocket redelivery after a reconnect collapses instead of
+-- double-counting volume.
+CREATE TABLE polymarket_trade
+(
+    `exchange` String,
+    `subject` String,
+    `event_id` String,
+    `condition_id` String,
+    `token_id` String,
+    `timestamp` DateTime64(9, 'UTC'),
+    `seq` UInt64,
+    `price` Float64,
+    `size` Float64,
+    `side` Enum8('BUY' = 1, 'SELL' = 2),
+    `fee_rate_bps` Float64,
+    `tx_hash` String
+) ENGINE = ReplacingMergeTree()
+PARTITION BY toYYYYMMDD(timestamp)
+ORDER BY (token_id, timestamp, tx_hash, price, size, side)
+TTL toDateTime(timestamp, 'UTC') + INTERVAL 10 DAY;
+```
+
+```sql
 CREATE TABLE polymarket_screener
 (
     `ts` DateTime('UTC'),               -- end of the measurement window
@@ -645,7 +673,7 @@ Example configuration: [./examples/config.polymarket.json](./examples/config.pol
 
 * **exchanges : markets : exclude_tag_ids** : The event must carry none of these Gamma tags. Applied **in the Gamma query**, so it shrinks the server-side result set — important for a broad base tag: `1312` (Crypto Prices) has 2000+ events (mostly high-frequency `Up or Down` markets) and Gamma rejects offset pagination past a depth cap, so exclude `102127` (`Up or Down`) to drop that churn (2000+ → ~130 events). Also a general blacklist when no single positive require tag isolates the subject.
 
-* **exchanges : markets : info : channel** : Always `book` for Polymarket.
+* **exchanges : markets : info : channel** : What to record for this subject. Possible values : `book` (the raw CLOB order-book stream → `polymarket_book`; the default when omitted) and `trade` (executed trades → `polymarket_trade`). List one `info` entry per channel — each with its own `storages` — to record both.
 
 * **exchanges : markets : info : market_types** : Which event types to record for this subject, as an array. Possible values : `ABOVE`, `RANGE`, `TOUCH`, `BUCKET`. Listing several records all of them; listing one filters the rest out; omitting / empty records all supported types.
 
@@ -708,6 +736,7 @@ RECORDING  ──  full book stream + metadata + resolution, until the market se
 
 * **connection : polymarket : auto : enabled** : Turns the mode on. Everything below is ignored when `false` (the default).
 * **connection : polymarket : auto : storages** : `terminal` and/or `clickhouse` for the `AUTO` rows (default `clickhouse`).
+* **connection : polymarket : auto : record_trades** : Also record executed trades (`polymarket_trade`) for promoted markets, not just the CLOB book stream (default `false`). The book stream is always recorded — it is what the screener judged.
 * **connection : polymarket : auto : scan_interval_sec** : How often to sweep the Gamma universe for new candidates (default 900).
 * **connection : polymarket : auto : poll_interval_sec** : How often to batch-poll candidate top-of-book and score one window (default 300, matching the screener's 5-minute grid step).
 * **connection : polymarket : auto : observation_window_sec** : The screener observation window, and the minimum time a candidate is watched before it can be judged (default 7200 = 2 h).

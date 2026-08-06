@@ -18,6 +18,26 @@ const chExchangeEnum = "Enum8('binance'=1,'kucoin'=2,'bybit'=3)"
 
 const chMarketEnum = "Enum16('BTCUSDT'=1,'ETHUSDT'=2,'XRPUSDT'=3,'SOLUSDT'=4,'SUIUSDT'=5,'PEPEUSDT'=6,'MATICUSDT'=7,'BNBUSDT'=8,'BLZUSDT'=9,'SHIBUSDT'=10,'ADAUSDT'=11,'LTCUSDT'=12,'DOGEUSDT'=13,'LINKUSDT'=14,'RUNEUSDT'=15,'OPUSDT'=16,'ARBUSDT'=17,'BCHUSDT'=18,'HBARUSDT'=19,'UNFIUSDT'=20,'SFPUSDT'=21,'CYBERUSDT'=22,'SUSHIUSDT'=23,'RNDRUSDT'=24,'LUNCUSDT'=25,'LEVERUSDT'=26,'APEUSDT'=27,'LPTUSDT'=28,'CFXUSDT'=29,'XLMUSDT'=30,'INJUSDT'=31,'FTMUSDT'=32,'YGGUSDT'=33,'DOTUSDT'=34,'ATOMUSDT'=35,'COMPUSDT'=36,'ETCUSDT'=37,'AVAXUSDT'=38,'CRVUSDT'=39,'APTUSDT'=40,'UNIUSDT'=41,'EOSUSDT'=42,'FLOKIUSDT'=43,'SEIUSDT'=44,'WLDUSDT'=45,'FETUSDT'=46,'IDUSDT'=47,'NEARUSDT'=48,'GALAUSDT'=49,'TOMOUSDT'=50,'MKRUSDT'=51,'AGIXUSDT'=52,'DYDXUSDT'=53,'LINAUSDT'=54,'ALGOUSDT'=55,'AXSUSDT'=56,'AAVEUSDT'=57,'JASMYUSDT'=58,'KAVAUSDT'=59,'TRUUSDT'=60,'OXTUSDT'=61,'MANAUSDT'=62,'WAVESUSDT'=63,'TRXUSDT'=64,'GRTUSDT'=65,'LDOUSDT'=66,'STORJUSDT'=67,'GMTUSDT'=68,'STMXUSDT'=69,'IMXUSDT'=70,'ICPUSDT'=71,'1INCHUSDT'=72,'FILUSDT'=73,'KNCUSDT'=74,'ZILUSDT'=75,'DASHUSDT'=76,'SANDUSDT'=77,'FLOWUSDT'=78,'ASTRUSDT'=79,'ANTUSDT'=80,'BNTUSDT'=81,'ONEUSDT'=82,'CHZUSDT'=83,'EGLDUSDT'=84,'SNXUSDT'=85,'MASKUSDT'=86,'QNTUSDT'=87,'VETUSDT'=88,'FXSUSDT'=89,'RSRUSDT'=90,'WOOUSDT'=91,'AMBUSDT'=92,'KSMUSDT'=93,'NEOUSDT'=94,'BALUSDT'=95,'STXUSDT'=96,'ROSEUSDT'=97,'PHBUSDT'=98,'ONTUSDT'=99,'SXPUSDT'=100,'AGLDUSDT'=101,'LRCUSDT'=102,'ARUSDT'=103,'ENJUSDT'=104,'OCEANUSDT'=105,'CELOUSDT'=106,'MAVUSDT'=107,'BLURUSDT'=108,'OGNUSDT'=109,'CHRUSDT'=110,'BELUSDT'=111,'GALUSDT'=112,'AUDIOUSDT'=113,'XMRUSDT'=114,'ACHUSDT'=115,'BAKEUSDT'=116,'CTSIUSDT'=117,'RENUSDT'=118,'JOEUSDT'=119,'HIGHUSDT'=120,'IOTXUSDT'=121,'DUSKUSDT'=122,'MTLUSDT'=123,'THETAUSDT'=124,'DGBUSDT'=125,'REEFUSDT'=126,'C98USDT'=127,'RDNTUSDT'=128,'BATUSDT'=129,'XTZUSDT'=130,'MAGICUSDT'=131,'EDUUSDT'=132,'YFIUSDT'=133,'ALICEUSDT'=134,'GMXUSDT'=135,'RVNUSDT'=136,'TRBUSDT'=137,'ARPAUSDT'=138,'SSVUSDT'=139,'ZECUSDT'=140,'OMGUSDT'=141,'ENSUSDT'=142,'CELRUSDT'=143,'MINAUSDT'=144,'LQTYUSDT'=145,'STGUSDT'=146,'BANDUSDT'=147,'XEMUSDT'=148,'QTUMUSDT'=149,'CKBUSDT'=150,'LITUSDT'=151,'XECUSDT'=152,'PERPUSDT'=153,'PEOPLEUSDT'=154,'DARUSDT'=155,'KEYUSDT'=156,'COMBOUSDT'=157,'UMAUSDT'=158,'GTCUSDT'=159,'ICXUSDT'=160,'HFTUSDT'=161,'PENDLEUSDT'=162,'HOOKUSDT'=163,'KLAYUSDT'=164,'NKNUSDT'=165,'ALPHAUSDT'=166,'DENTUSDT'=167,'ANKRUSDT'=168,'MDTUSDT'=169,'RADUSDT'=170,'BTCUSDTF'=-1,'ETHUSDTF'=-2,'SOLUSDTF'=-3,'MATICUSDTF'=-4,'XRPUSDTF'=-5,'LINKUSDTF'=-6,'AVAXUSDTF'=-7,'DYDXUSDTF'=-8,'1000PEPEUSDTF'=-9,'PEPEUSDTF'=171,'DOGEUSDTF'=-10,'RUNEUSDTF'=-11,'TRBUSDTF'=-12,'WLDUSDTF'=-13,'INJUSDTF'=-14,'ATOMUSDTF'=-15,'ADAUSDTF'=-16,'SUIUSDTF'=-17,'ARBUSDTF'=-18,'GALAUSDTF'=-19,'APTUSDTF'=-20,'SEIUSDTF'=-21,'OPUSDTF'=-22,'GMTUSDTF'=-23,'LTCUSDTF'=-24,'FTMUSDTF'=-25,'OMGUSDTF'=-26,'LDOUSDTF'=-27,'DOTUSDTF'=-28,'BNBUSDTF'=-29,'BCHUSDTF'=-30,'CYBERUSDTF'=-31,'SHIB1000USDTF'=-32,'1000SHIBUSDTF'=-33,'SHIBUSDTF'=172,'STORJUSDTF'=-34,'ETCUSDTF'=-35,'FILUSDTF'=-36,'RNDRUSDTF'=-37,'BLURUSDTF'=-38,'NEARUSDTF'=-39,'BLZUSDTF'=-40,'APEUSDTF'=-41,'FLOWUSDTF'=-42,'FXSUSDTF'=-43,'YGGUSDTF'=-44,'1000FLOKIUSDTF'=-45,'FLOKIUSDTF'=173,'BNTUSDTF'=-46,'MKRUSDTF'=-47,'SUSHIUSDTF'=-48,'YFIUSDTF'=-49,'AAVEUSDTF'=-50,'SANDUSDTF'=-51,'WAVESUSDTF'=-52,'FETUSDTF'=-53,'EOSUSDTF'=-54,'IMXUSDTF'=-55,'AXSUSDTF'=-56,'MAVUSDTF'=-57,'EGLDUSDTF'=-58,'XLMUSDTF'=-59,'CRVUSDTF'=-60,'CFXUSDTF'=-61,'THETAUSDTF'=-62,'STXUSDTF'=-63,'GRTUSDTF'=-64,'UNIUSDTF'=-65,'KNCUSDTF'=-66,'COMPUSDTF'=-67,'MANAUSDTF'=-68,'1000LUNCUSDTF'=-69,'LUNCUSDTF'=174,'MTLUSDTF'=-70,'LINAUSDTF'=-71,'WOOUSDTF'=-72,'ICPUSDTF'=-73,'MINAUSDTF'=-74,'ALGOUSDTF'=-75,'ARUSDTF'=-76,'LQTYUSDTF'=-77,'CHZUSDTF'=-78,'KAVAUSDTF'=-79,'SNXUSDTF'=-80,'ASTRUSDTF'=-81,'MASKUSDTF'=-82,'STMXUSDTF'=-83,'STGUSDTF'=-84,'LPTUSDTF'=-85,'GALUSDTF'=-86,'HBARUSDTF'=-87,'OCEANUSDTF'=-88,'ARPAUSDTF'=-89,'HFTUSDTF'=-90,'HOOKUSDTF'=-91,'LEVERUSDTF'=-92,'UNFIUSDTF'=-93,'NEOUSDTF'=-94,'GMXUSDTF'=-95,'IDUSDTF'=-96,'JASMYUSDTF'=-97,'1INCHUSDTF'=-98,'XTZUSDTF'=-99,'ENJUSDTF'=-100,'ICXUSDTF'=-101,'CELOUSDTF'=-102,'JOEUSDTF'=-103,'AMBUSDTF'=-104,'SXPUSDTF'=-105,'TRXUSDTF'=-106,'OGNUSDTF'=-107,'MAGICUSDTF'=-108,'AGLDUSDTF'=-109,'BAKEUSDTF'=-110,'RENUSDTF'=-111,'ZILUSDTF'=-112,'VETUSDTF'=-113,'AGIXUSDTF'=-114,'ANKRUSDTF'=-115,'BATUSDTF'=-116,'SFPUSDTF'=-117,'ROSEUSDTF'=-118,'AUDIOUSDTF'=-119,'C98USDTF'=-120,'ENSUSDTF'=-121,'CTSIUSDTF'=-122,'EDUUSDTF'=-123,'PERPUSDTF'=-124,'MDTUSDTF'=-125,'PENDLEUSDTF'=-126,'1000XECUSDTF'=-127,'XECUSDTF'=175,'DUSKUSDTF'=-128,'RDNTUSDTF'=-129,'XMRUSDTF'=-130,'TRUUSDTF'=-131,'PEOPLEUSDTF'=-132,'ONEUSDTF'=-133,'BANDUSDTF'=-134,'ALICEUSDTF'=-135,'XEMUSDTF'=-136,'QTUMUSDTF'=-137,'BELUSDTF'=-138,'HIGHUSDTF'=-139,'OXTUSDTF'=-140,'ACHUSDTF'=-141,'SSVUSDTF'=-142,'LRCUSDTF'=-143,'KSMUSDTF'=-144,'DASHUSDTF'=-145,'RSRUSDTF'=-146,'QNTUSDTF'=-147,'PHBUSDTF'=-148,'KLAYUSDTF'=-149,'ZECUSDTF'=-150,'ANTUSDTF'=-151,'RADUSDTF'=-152,'ONTUSDTF'=-153,'REEFUSDTF'=-154,'LITUSDTF'=-155,'CHRUSDTF'=-156,'RVNUSDTF'=-157,'UMAUSDTF'=-158,'CELRUSDTF'=-159,'NKNUSDTF'=-160,'GTCUSDTF'=-161,'IOTXUSDTF'=-162,'KEYUSDTF'=-163,'ALPHAUSDTF'=-164,'DARUSDTF'=-165,'BALUSDTF'=-166,'COMBOUSDTF'=-167,'CKBUSDTF'=-168,'ATAUSDTF'=-169,'DGBUSDTF'=-170,'DENTUSDTF'=-171,'BONKUSDT'=-172,'1000BONKUSDTF'=-173,'WIFUSDT'=-174,'WIFUSDTF'=-175,'CATIUSDT'=-176,'CATIUSDTF'=-177,'POPCATUSDT'=-178,'POPCATUSDTF'=-179,'TIAUSDT'=-180,'TIAUSDTF'=-181,'ENAUSDT'=-182,'ENAUSDTF'=-183,'ONDOUSDT'=-184,'ONDOUSDTF'=-185,'DEGENUSDT'=-186,'DEGENUSDTF'=-187,'ORDIUSDT'=-188,'ORDIUSDTF'=-189,'KASUSDT'=-190,'KASUSDTF'=-191,'DRIFTUSDT'=-192,'DRIFTUSDTF'=-193,'POLUSDT'=-194,'POLUSDTF'=-195,'ZRXUSDT'=-196,'ZRXUSDTF'=-197,'STRKUSDT'=-198,'STRKUSDTF'=-199,'DOGSUSDT'=-200,'DOGSUSDTF'=-201,'JUPUSDT'=-202,'JUPUSDTF'=-203,'TONUSDT'=-204,'TONUSDTF'=-205,'NOTUSDT'=-206,'NOTUSDTF'=-207)"
 
+// RetentionDays is the SINGLE rotation interval shared by every table this app
+// creates — the crypto-spot tables and the Polymarket ones alike. There is no
+// cold-storage tier: everything lives on the main storage and is dropped past
+// this age. Change it here and both the CREATE statements and the ALTER
+// migrations below follow (scripts/clickhouse_schema.sql mirrors the value).
+const RetentionDays = 15
+
+// ttlDays renders the shared TTL clause for a DateTime/DateTime64 column.
+func ttlDays(col string) string {
+	return fmt.Sprintf("TTL toDateTime(%s, 'UTC') + INTERVAL %d DAY", col, RetentionDays)
+}
+
+// modifyTTL renders the migration that retunes an EXISTING table to the shared
+// interval. MODIFY TTL replaces the whole previous expression, so it also drops
+// any older rule (e.g. the "+ 50 DAY TO DISK 'cold_storage'" move the spot
+// tables used to carry). Idempotent.
+func modifyTTL(table, col string) string {
+	return fmt.Sprintf("ALTER TABLE %s MODIFY %s", table, ttlDays(col))
+}
+
 // CreateExchangeTables idempotently creates ticker / trade / level2 / ordersbook.
 func (c *ClickHouse) CreateExchangeTables(appCtx context.Context) error {
 	ddl := func(name, tsType, payloadCols string) string {
@@ -29,9 +49,7 @@ func (c *ClickHouse) CreateExchangeTables(appCtx context.Context) error {
 			") ENGINE = MergeTree()\n" +
 			"PARTITION BY toYYYYMMDD(timestamp)\n" +
 			"ORDER BY (exchange, market, timestamp)\n" +
-			"TTL toDateTime(timestamp, 'UTC') + INTERVAL 50 DAY TO DISK 'cold_storage',\n" +
-			"    toDateTime(timestamp, 'UTC') + INTERVAL 5 MONTH\n" +
-			"SETTINGS storage_policy = 'moving_from_ssd_to_hdd'"
+			ttlDays("timestamp")
 	}
 	stmts := []string{
 		ddl("ticker", "DateTime64(3, 'UTC')", "data String"),
@@ -42,6 +60,28 @@ func (c *ClickHouse) CreateExchangeTables(appCtx context.Context) error {
 	for _, stmt := range stmts {
 		if _, err := c.DB.ExecContext(appCtx, stmt); err != nil {
 			return err
+		}
+	}
+	return c.migrateExchangeTables(appCtx)
+}
+
+// exchangeMigrations retunes tables that ALREADY EXIST: a CREATE TABLE IF NOT
+// EXISTS never touches them, so the retention change has to be applied
+// explicitly. The old storage_policy setting is left alone: with no TTL moves
+// it has no effect, and MODIFY SETTING storage_policy is restricted on a
+// populated table.
+func exchangeMigrations() []string {
+	var out []string
+	for _, t := range []string{"ticker", "trade", "level2", "ordersbook"} {
+		out = append(out, modifyTTL(t, "timestamp"))
+	}
+	return out
+}
+
+func (c *ClickHouse) migrateExchangeTables(appCtx context.Context) error {
+	for _, stmt := range exchangeMigrations() {
+		if _, err := c.DB.ExecContext(appCtx, stmt); err != nil {
+			return fmt.Errorf("exchange migration %q: %w", stmt, err)
 		}
 	}
 	return nil
@@ -68,7 +108,7 @@ func (c *ClickHouse) CreatePolymarketTables(appCtx context.Context) error {
 		) ENGINE = MergeTree()
 		PARTITION BY toYYYYMMDD(timestamp)
 		ORDER BY (token_id, seq)
-		TTL toDateTime(timestamp, 'UTC') + INTERVAL 5 MONTH`,
+		` + ttlDays("timestamp"),
 		`CREATE TABLE IF NOT EXISTS polymarket_market (
 			subject String,
 			event_id String,
@@ -90,7 +130,25 @@ func (c *ClickHouse) CreatePolymarketTables(appCtx context.Context) error {
 			updated_ts DateTime64(9, 'UTC'),
 			category String
 		) ENGINE = ReplacingMergeTree(updated_ts)
-		ORDER BY (condition_id, token_id)`,
+		ORDER BY (condition_id, token_id)
+		` + ttlDays("updated_ts"),
+		`CREATE TABLE IF NOT EXISTS polymarket_trade (
+			exchange String,
+			subject String,
+			event_id String,
+			condition_id String,
+			token_id String,
+			timestamp DateTime64(9, 'UTC'),
+			seq UInt64,
+			price Float64,
+			size Float64,
+			side Enum8('BUY' = 1, 'SELL' = 2),
+			fee_rate_bps Float64,
+			tx_hash String
+		) ENGINE = ReplacingMergeTree()
+		PARTITION BY toYYYYMMDD(timestamp)
+		ORDER BY (token_id, timestamp, tx_hash, price, size, side)
+		` + ttlDays("timestamp"),
 		`CREATE TABLE IF NOT EXISTS polymarket_screener (
 			ts DateTime('UTC'),
 			subject String,
@@ -116,7 +174,8 @@ func (c *ClickHouse) CreatePolymarketTables(appCtx context.Context) error {
 			in_pass_list UInt8
 		) ENGINE = MergeTree()
 		PARTITION BY toYYYYMM(ts)
-		ORDER BY (token_id, ts)`,
+		ORDER BY (token_id, ts)
+		` + ttlDays("ts"),
 	}
 	for _, stmt := range stmts {
 		if _, err := c.DB.ExecContext(appCtx, stmt); err != nil {
@@ -133,16 +192,26 @@ func (c *ClickHouse) CreatePolymarketTables(appCtx context.Context) error {
 // column with a default is a metadata-only operation — existing rows read back
 // the default (” here) and in-flight INSERTs naming explicit columns keep
 // working. Keep this list append-only and never make it destructive.
-var polymarketMigrations = []string{
-	// category: Gamma category of the event (politics/sports/crypto/...). Empty
-	// for the pre-existing configured subjects.
-	`ALTER TABLE polymarket_market ADD COLUMN IF NOT EXISTS category String AFTER updated_ts`,
+// (The TTL retunes below are the same shared-interval migration the spot tables
+// get — see modifyTTL.)
+func polymarketMigrations() []string {
+	return []string{
+		// category: Gamma category of the event (politics/sports/crypto/...). Empty
+		// for the pre-existing configured subjects.
+		`ALTER TABLE polymarket_market ADD COLUMN IF NOT EXISTS category String AFTER updated_ts`,
+		// One rotation interval for every table: retune installations created
+		// when these carried a longer (or no) TTL.
+		modifyTTL("polymarket_book", "timestamp"),
+		modifyTTL("polymarket_trade", "timestamp"),
+		modifyTTL("polymarket_market", "updated_ts"),
+		modifyTTL("polymarket_screener", "ts"),
+	}
 }
 
 // migratePolymarketTables applies polymarketMigrations. A failure is returned so
 // the caller can log it; the connector treats table setup as best-effort.
 func (c *ClickHouse) migratePolymarketTables(appCtx context.Context) error {
-	for _, stmt := range polymarketMigrations {
+	for _, stmt := range polymarketMigrations() {
 		if _, err := c.DB.ExecContext(appCtx, stmt); err != nil {
 			return fmt.Errorf("polymarket migration %q: %w", stmt, err)
 		}

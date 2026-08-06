@@ -96,6 +96,24 @@ type PolymarketMarket struct {
 	Category string
 }
 
+// PolymarketTrade is one executed trade of a Polymarket outcome token, taken
+// from the CLOB websocket `last_trade_price` event (table polymarket_trade).
+// Side is the taker side (BUY/SELL) as reported by the feed; TxHash identifies
+// the on-chain settlement and lets a reader deduplicate websocket redeliveries.
+type PolymarketTrade struct {
+	Subject     string
+	EventID     string
+	ConditionID string
+	TokenID     string
+	Timestamp   time.Time
+	Seq         uint64
+	Price       float64
+	Size        float64
+	Side        string
+	FeeRateBps  float64
+	TxHash      string
+}
+
 // PolymarketScreener is one screener measurement window for one outcome token
 // (table polymarket_screener). Metrics follow the canonical screener
 // (mm_engine/screener_zero_curvature.py); State is CANDIDATE/RECORDING/DROPPED
@@ -134,4 +152,5 @@ type Storage interface {
 	CommitPolymarketBook(context.Context, []PolymarketBook) error
 	CommitPolymarketMarket(context.Context, []PolymarketMarket) error
 	CommitPolymarketScreener(context.Context, []PolymarketScreener) error
+	CommitPolymarketTrade(context.Context, []PolymarketTrade) error
 }

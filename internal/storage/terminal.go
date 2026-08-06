@@ -76,6 +76,17 @@ func (t *Terminal) CommitPolymarketBook(_ context.Context, data []PolymarketBook
 	return nil
 }
 
+// CommitPolymarketTrade batch outputs Polymarket executed trades to terminal.
+func (t *Terminal) CommitPolymarketTrade(_ context.Context, data []PolymarketTrade) error {
+	for i := range data {
+		tr := data[i]
+		fmt.Fprintf(t.out, "%-12s%-8s%-5s%-25s price=%-8.4f size=%-12.4f %20s\n\n",
+			"PolyTrade", tr.Subject, tr.Side, tr.TokenID, tr.Price, tr.Size,
+			tr.Timestamp.Local().Format(TerminalTimestampMicroSec))
+	}
+	return nil
+}
+
 // CommitPolymarketScreener batch outputs screener windows to terminal.
 func (t *Terminal) CommitPolymarketScreener(_ context.Context, data []PolymarketScreener) error {
 	for i := range data {

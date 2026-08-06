@@ -259,6 +259,9 @@ type PolymarketAuto struct {
 	// "clickhouse"), the same choice the configured subjects make per-market.
 	// Default: clickhouse.
 	Storages []string `json:"storages"`
+	// RecordTrades also records executed trades (polymarket_trade) for promoted
+	// markets, not just the CLOB book stream. Default false.
+	RecordTrades bool `json:"record_trades"`
 
 	// ScanIntSec is how often to sweep the Gamma universe for new candidates
 	// (default 900).

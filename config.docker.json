@@ -6,15 +6,38 @@
                 {
                     "id": "BTC",
                     "gamma_tag_id": 1312,
-                    "require_tag_ids": [235],
-                    "exclude_tag_ids":[102127],
+                    "require_tag_ids": [
+                        235
+                    ],
+                    "exclude_tag_ids": [
+                        102127
+                    ],
                     "info": [
                         {
                             "channel": "book",
                             "connector": "websocket",
-                            "market_types": ["ABOVE", "RANGE", "TOUCH"],
+                            "market_types": [
+                                "ABOVE",
+                                "RANGE",
+                                "TOUCH"
+                            ],
                             "websocket_consider_interval_sec": 0,
-                            "storages": ["clickhouse"]
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        },
+                        {
+                            "channel": "trade",
+                            "connector": "websocket",
+                            "market_types": [
+                                "ABOVE",
+                                "RANGE",
+                                "TOUCH"
+                            ],
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "clickhouse"
+                            ]
                         }
                     ]
                 }
@@ -77,7 +100,10 @@
             "auto_create_tables": true,
             "auto": {
                 "enabled": true,
-                "storages": ["clickhouse"],
+                "storages": [
+                    "clickhouse"
+                ],
+                "record_trades": true,
                 "scan_interval_sec": 900,
                 "poll_interval_sec": 300,
                 "observation_window_sec": 7200,
@@ -91,7 +117,7 @@
                 "min_hours_to_expiry": 6,
                 "max_hours_to_expiry": 720,
                 "max_tick_size": 0.01,
-                "final_phase_frac": 0.10
+                "final_phase_frac": 0.1
             }
         }
     },

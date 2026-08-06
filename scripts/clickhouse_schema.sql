@@ -8,9 +8,7 @@ CREATE TABLE ticker
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
 ORDER BY (exchange, market, timestamp)
-TTL toDateTime(timestamp, 'UTC') + INTERVAL 50 DAY TO DISK 'cold_storage',
-    toDateTime(timestamp, 'UTC') + INTERVAL 5 MONTH
-SETTINGS storage_policy = 'moving_from_ssd_to_hdd';
+TTL toDateTime(timestamp, 'UTC') + INTERVAL 10 DAY;
 
 CREATE TABLE trade
 (
@@ -21,9 +19,7 @@ CREATE TABLE trade
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
 ORDER BY (exchange, market, timestamp)
-TTL toDateTime(timestamp, 'UTC') + INTERVAL 50 DAY TO DISK 'cold_storage',
-    toDateTime(timestamp, 'UTC') + INTERVAL 5 MONTH
-SETTINGS storage_policy = 'moving_from_ssd_to_hdd';
+TTL toDateTime(timestamp, 'UTC') + INTERVAL 10 DAY;
 
 CREATE TABLE level2
 (
@@ -35,9 +31,7 @@ CREATE TABLE level2
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
 ORDER BY (exchange, market, timestamp)
-TTL toDateTime(timestamp, 'UTC') + INTERVAL 50 DAY TO DISK 'cold_storage',
-    toDateTime(timestamp, 'UTC') + INTERVAL 5 MONTH
-SETTINGS storage_policy = 'moving_from_ssd_to_hdd';
+TTL toDateTime(timestamp, 'UTC') + INTERVAL 10 DAY;
 
 CREATE TABLE ordersbook
 (
@@ -49,9 +43,28 @@ CREATE TABLE ordersbook
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
 ORDER BY (exchange, market, timestamp)
-TTL toDateTime(timestamp, 'UTC') + INTERVAL 50 DAY TO DISK 'cold_storage',
-    toDateTime(timestamp, 'UTC') + INTERVAL 5 MONTH
-SETTINGS storage_policy = 'moving_from_ssd_to_hdd';
+TTL toDateTime(timestamp, 'UTC') + INTERVAL 10 DAY;
+
+-- MIGRATION for installations created before the retention change: there is no
+-- cold-storage tier any more — everything stays on the main storage and is
+-- dropped after 10 days. MODIFY TTL replaces the WHOLE previous TTL expression,
+-- so it removes the old "+ 50 DAY TO DISK 'cold_storage'" move rule as well.
+-- Safe on a live table (metadata change; the merge scheduler applies it in the
+-- background) and idempotent. The old storage_policy setting is intentionally
+-- left as-is: with no TTL moves it does nothing, and changing storage_policy on
+-- a populated table is restricted. The app applies these at startup.
+-- ONE rotation interval for EVERY table this app writes — the crypto-spot ones
+-- and the Polymarket ones alike (the latter previously kept 5 months / no TTL).
+ALTER TABLE ticker     MODIFY TTL toDateTime(timestamp, 'UTC') + INTERVAL 10 DAY;
+ALTER TABLE trade      MODIFY TTL toDateTime(timestamp, 'UTC') + INTERVAL 10 DAY;
+ALTER TABLE level2     MODIFY TTL toDateTime(timestamp, 'UTC') + INTERVAL 10 DAY;
+ALTER TABLE ordersbook MODIFY TTL toDateTime(timestamp, 'UTC') + INTERVAL 10 DAY;
+-- (run these after the polymarket_* tables below exist)
+ALTER TABLE polymarket_book     MODIFY TTL toDateTime(timestamp, 'UTC')  + INTERVAL 10 DAY;
+ALTER TABLE polymarket_trade    MODIFY TTL toDateTime(timestamp, 'UTC')  + INTERVAL 10 DAY;
+ALTER TABLE polymarket_market   MODIFY TTL toDateTime(updated_ts, 'UTC') + INTERVAL 10 DAY;
+ALTER TABLE polymarket_screener MODIFY TTL toDateTime(ts, 'UTC')         + INTERVAL 10 DAY;
+
 -- ---------------------------------------------------------------------------
 -- Polymarket CLOB tables (prediction-market book snapshots + market metadata).
 -- IDs are dynamic ERC1155 token ids / 0x condition ids => plain String columns
@@ -77,7 +90,7 @@ CREATE TABLE IF NOT EXISTS polymarket_book
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMMDD(timestamp)
 ORDER BY (token_id, seq)
-TTL toDateTime(timestamp, 'UTC') + INTERVAL 5 MONTH;
+TTL toDateTime(timestamp, 'UTC') + INTERVAL 10 DAY;
 
 -- polymarket_market: one row per outcome token (BOTH Yes and No of each strike;
 -- token_index 0=Yes/Up, 1=No/Down). Resolution upserts via ReplacingMergeTree.
@@ -103,7 +116,8 @@ CREATE TABLE IF NOT EXISTS polymarket_market
     `updated_ts` DateTime64(9, 'UTC'),
     `category` String                   -- Gamma category (politics/sports/crypto/...); '' for configured subjects
 ) ENGINE = ReplacingMergeTree(updated_ts)
-ORDER BY (condition_id, token_id);
+ORDER BY (condition_id, token_id)
+TTL toDateTime(updated_ts, 'UTC') + INTERVAL 10 DAY;
 
 -- MIGRATION for installations whose polymarket_market predates the `category`
 -- column: additive, idempotent, metadata-only. Safe to run against a live table
@@ -115,6 +129,30 @@ ALTER TABLE polymarket_market ADD COLUMN IF NOT EXISTS `category` String AFTER `
 -- polymarket_screener: one row per screener measurement window per tracked token
 -- (auto-discovery mode). Metrics follow the canonical screener in
 -- mm_engine/screener_zero_curvature.py. Light rows -> long retention.
+-- polymarket_trade: executed trades of an outcome token, from the CLOB
+-- websocket `last_trade_price` event. Selected per subject with the `trade`
+-- channel (and by polymarket.auto.record_trades for AUTO markets).
+-- ReplacingMergeTree over the full trade identity so a websocket redelivery
+-- after a reconnect collapses instead of double-counting volume.
+CREATE TABLE IF NOT EXISTS polymarket_trade
+(
+    `exchange` String,
+    `subject` String,
+    `event_id` String,
+    `condition_id` String,
+    `token_id` String,
+    `timestamp` DateTime64(9, 'UTC'),
+    `seq` UInt64,
+    `price` Float64,
+    `size` Float64,
+    `side` Enum8('BUY' = 1, 'SELL' = 2),
+    `fee_rate_bps` Float64,
+    `tx_hash` String
+) ENGINE = ReplacingMergeTree()
+PARTITION BY toYYYYMMDD(timestamp)
+ORDER BY (token_id, timestamp, tx_hash, price, size, side)
+TTL toDateTime(timestamp, 'UTC') + INTERVAL 10 DAY;
+
 CREATE TABLE IF NOT EXISTS polymarket_screener
 (
     `ts` DateTime('UTC'),
@@ -141,4 +179,5 @@ CREATE TABLE IF NOT EXISTS polymarket_screener
     `in_pass_list` UInt8
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(ts)
-ORDER BY (token_id, ts);
+ORDER BY (token_id, ts)
+TTL toDateTime(ts, 'UTC') + INTERVAL 10 DAY;

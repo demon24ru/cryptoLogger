@@ -88,6 +88,12 @@ const (
 	polyArrowDown = "↓" // ↓
 )
 
+// Recording channels a subject can select via config `channel`.
+const (
+	polyChannelBook  = "book"  // raw CLOB stream -> polymarket_book (default)
+	polyChannelTrade = "trade" // executed trades  -> polymarket_trade
+)
+
 // StartPolymarket is for starting the Polymarket connector functions.
 func StartPolymarket(appCtx context.Context, markets []config.Market, retry *config.Retry, connCfg *config.Connection) error {
 
@@ -173,8 +179,12 @@ type polySubjectCfg struct {
 	requireTagIDs []int               // event must ALSO carry all of these tags
 	excludeTagIDs []int               // event must carry none of these tags
 	types         map[string]struct{} // ABOVE / RANGE / TOUCH / BUCKET; empty = all supported
-	terStr        bool
-	clickHStr     bool
+	// Storage routing per channel: the book stream and the trade stream are
+	// selected independently (config `channel`: "book" / "trade").
+	terStr         bool
+	clickHStr      bool
+	tradeTerStr    bool
+	tradeClickHStr bool
 	// auto marks the pseudo-subject 'AUTO' owned by the auto-discovery screener
 	// (polymarket_auto.go). It has no Gamma tag query of its own — its markets
 	// are chosen by the screener — so tag-based discovery must skip it.
@@ -201,6 +211,13 @@ type knownMarket struct {
 // from the reader/anchor goroutines to the batcher.
 type polyBookItem struct {
 	row storage.PolymarketBook
+	ter bool
+	ch  bool
+}
+
+// polyTradeItem is an executed trade plus its per-subject storage routing flags.
+type polyTradeItem struct {
+	row storage.PolymarketTrade
 	ter bool
 	ch  bool
 }
@@ -245,6 +262,13 @@ type polymarket struct {
 	bookOut          chan polyBookItem // reader/anchor -> batcher (single rows + routing flags)
 	wsTerBook        chan []storage.PolymarketBook
 	wsClickHouseBook chan []storage.PolymarketBook
+
+	// trade commit channels/buffers (config channel "trade").
+	tradeOut          chan polyTradeItem
+	wsTerTrade        chan []storage.PolymarketTrade
+	wsClickHouseTrade chan []storage.PolymarketTrade
+	tradeTerStr       bool
+	tradeClickHStr    bool
 
 	// shared discovery state (guarded by mu).
 	mu         sync.RWMutex
@@ -306,25 +330,53 @@ func newPolymarket(appCtx context.Context, markets []config.Market, connCfg *con
 				}
 				cc.types[t] = struct{}{}
 			}
+			// channel selects WHAT is recorded for this subject: the CLOB book
+			// stream (default) or executed trades. A subject may list both, each
+			// with its own storages — the same per-channel shape the other
+			// exchanges use.
+			channel := strings.ToLower(strings.TrimSpace(info.Channel))
+			if channel == "" {
+				channel = polyChannelBook
+			}
+			if channel != polyChannelBook && channel != polyChannelTrade {
+				log.Error().Str("exchange", "polymarket").Str("subject", subject).Str("channel", channel).Msg("unknown channel in config (supported: book, trade) — entry ignored")
+				continue
+			}
 			for _, str := range info.Storages {
 				switch str {
 				case "terminal":
-					cc.terStr = true
 					if p.ter == nil {
 						p.ter = storage.GetTerminal()
 					}
-					if !p.terStr {
-						p.terStr = true
-						p.wsTerBook = make(chan []storage.PolymarketBook, 1)
+					if channel == polyChannelTrade {
+						cc.tradeTerStr = true
+						if !p.tradeTerStr {
+							p.tradeTerStr = true
+							p.wsTerTrade = make(chan []storage.PolymarketTrade, 1)
+						}
+					} else {
+						cc.terStr = true
+						if !p.terStr {
+							p.terStr = true
+							p.wsTerBook = make(chan []storage.PolymarketBook, 1)
+						}
 					}
 				case "clickhouse":
-					cc.clickHStr = true
 					if p.clickhouse == nil {
 						p.clickhouse = storage.GetClickHouse()
 					}
-					if !p.clickHStr {
-						p.clickHStr = true
-						p.wsClickHouseBook = make(chan []storage.PolymarketBook, 1)
+					if channel == polyChannelTrade {
+						cc.tradeClickHStr = true
+						if !p.tradeClickHStr {
+							p.tradeClickHStr = true
+							p.wsClickHouseTrade = make(chan []storage.PolymarketTrade, 1)
+						}
+					} else {
+						cc.clickHStr = true
+						if !p.clickHStr {
+							p.clickHStr = true
+							p.wsClickHouseBook = make(chan []storage.PolymarketBook, 1)
+						}
 					}
 				}
 			}
@@ -354,6 +406,7 @@ func newPolymarket(appCtx context.Context, markets []config.Market, connCfg *con
 		return errors.New("polymarket: no storage configured (need terminal and/or clickhouse)")
 	}
 	p.bookOut = make(chan polyBookItem, 256)
+	p.tradeOut = make(chan polyTradeItem, 256)
 
 	timeout := connCfg.REST.ReqTimeoutSec
 	if timeout <= 0 {
@@ -393,6 +446,23 @@ func newPolymarket(appCtx context.Context, markets []config.Market, connCfg *con
 	if p.clickHStr {
 		polyErrGroup.Go(func() error {
 			return WsPolymarketBookToStorage(ctx, p.clickhouse, p.wsClickHouseBook)
+		})
+	}
+
+	// Trade commit workers + batcher (only when some subject records trades).
+	if p.tradeTerStr || p.tradeClickHStr {
+		polyErrGroup.Go(func() error {
+			return p.tradeBatcher(ctx)
+		})
+	}
+	if p.tradeTerStr {
+		polyErrGroup.Go(func() error {
+			return WsPolymarketTradeToStorage(ctx, p.ter, p.wsTerTrade)
+		})
+	}
+	if p.tradeClickHStr {
+		polyErrGroup.Go(func() error {
+			return WsPolymarketTradeToStorage(ctx, p.clickhouse, p.wsClickHouseTrade)
 		})
 	}
 
@@ -1174,10 +1244,149 @@ func (p *polymarket) readWs(ctx context.Context) error {
 							return err
 						}
 					}
+				case "last_trade_price":
+					var msg polyTradeMsg
+					if err := jsoniter.Unmarshal(raw, &msg); err != nil {
+						logErrStack(err)
+						continue
+					}
+					if err := p.persistTrade(ctx, &msg); err != nil {
+						return err
+					}
 				default:
-					// last_trade_price / tick_size_change / etc. — not stored.
+					// tick_size_change / etc. — not stored.
 				}
 			}
+		}
+	}
+}
+
+// polyTradeMsg is the CLOB market-channel `last_trade_price` event: one executed
+// trade of one outcome token.
+type polyTradeMsg struct {
+	AssetID    string `json:"asset_id"`
+	Market     string `json:"market"`
+	Price      string `json:"price"`
+	Size       string `json:"size"`
+	Side       string `json:"side"`
+	FeeRateBps string `json:"fee_rate_bps"`
+	Timestamp  string `json:"timestamp"`
+	TxHash     string `json:"transaction_hash"`
+}
+
+// persistTrade stamps an executed trade with its grouping ids and hands it to
+// the trade batcher, routed to the subject's trade storages. Trades of tokens
+// whose subject does not record the trade channel are dropped.
+func (p *polymarket) persistTrade(ctx context.Context, msg *polyTradeMsg) error {
+	meta, ok := p.trackedMeta(msg.AssetID)
+	if !ok {
+		return nil
+	}
+	cc := p.subjectCfg[meta.subject]
+	if cc == nil || (!cc.tradeTerStr && !cc.tradeClickHStr) {
+		return nil // this subject does not record trades
+	}
+	side := strings.ToUpper(strings.TrimSpace(msg.Side))
+	if side != "BUY" && side != "SELL" {
+		return nil // unknown side: the Enum8 column would reject it
+	}
+	item := polyTradeItem{
+		row: storage.PolymarketTrade{
+			Subject:     meta.subject,
+			EventID:     meta.eventID,
+			ConditionID: meta.conditionID,
+			TokenID:     msg.AssetID,
+			Timestamp:   parseMillisTime(msg.Timestamp),
+			Seq:         atomic.AddUint64(p.seq, 1),
+			Price:       parseFloatOrZero(msg.Price),
+			Size:        parseFloatOrZero(msg.Size),
+			Side:        side,
+			FeeRateBps:  parseFloatOrZero(msg.FeeRateBps),
+			TxHash:      msg.TxHash,
+		},
+		ter: cc.tradeTerStr,
+		ch:  cc.tradeClickHStr,
+	}
+	select {
+	case p.tradeOut <- item:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	return nil
+}
+
+// parseFloatOrZero parses a decimal string from the feed, yielding 0 on failure
+// (the feed sends numbers as strings; a malformed one must not drop the trade).
+func parseFloatOrZero(s string) float64 {
+	v, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	if err != nil {
+		return 0
+	}
+	return v
+}
+
+// tradeBatcher accumulates executed trades into per-storage batches, flushing on
+// the same count-or-timer rule as the book batcher.
+func (p *polymarket) tradeBatcher(ctx context.Context) error {
+	tick := time.NewTicker(polyBookFlushIntSec * time.Second)
+	defer tick.Stop()
+
+	terBatch := make([]storage.PolymarketTrade, 0, p.terBookBuf)
+	chBatch := make([]storage.PolymarketTrade, 0, p.chBookBuf)
+
+	flushTer := func() error {
+		if len(terBatch) == 0 {
+			return nil
+		}
+		select {
+		case p.wsTerTrade <- terBatch:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		terBatch = make([]storage.PolymarketTrade, 0, p.terBookBuf)
+		return nil
+	}
+	flushCh := func() error {
+		if len(chBatch) == 0 {
+			return nil
+		}
+		select {
+		case p.wsClickHouseTrade <- chBatch:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		chBatch = make([]storage.PolymarketTrade, 0, p.chBookBuf)
+		return nil
+	}
+
+	for {
+		select {
+		case item := <-p.tradeOut:
+			if item.ter {
+				terBatch = append(terBatch, item.row)
+				if len(terBatch) >= p.terBookBuf {
+					if err := flushTer(); err != nil {
+						return err
+					}
+				}
+			}
+			if item.ch {
+				chBatch = append(chBatch, item.row)
+				if len(chBatch) >= p.chBookBuf {
+					if err := flushCh(); err != nil {
+						return err
+					}
+				}
+			}
+		case <-tick.C:
+			if err := flushTer(); err != nil {
+				return err
+			}
+			if err := flushCh(); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 }

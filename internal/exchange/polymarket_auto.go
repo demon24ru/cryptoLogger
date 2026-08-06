@@ -246,6 +246,9 @@ func (p *polymarket) newAutoSubjectCfg(cfg config.PolymarketAuto) *polySubjectCf
 	if len(storages) == 0 {
 		storages = []string{"clickhouse"}
 	}
+	// channels: the book stream is always recorded for a promoted market (it is
+	// what the screener judged); trades are opt-in via record_trades. Both go to
+	// the same storages, mirroring the per-channel routing of configured subjects.
 	for _, str := range storages {
 		switch str {
 		case "terminal":
@@ -257,6 +260,13 @@ func (p *polymarket) newAutoSubjectCfg(cfg config.PolymarketAuto) *polySubjectCf
 				p.terStr = true
 				p.wsTerBook = make(chan []storage.PolymarketBook, 1)
 			}
+			if cfg.RecordTrades {
+				cc.tradeTerStr = true
+				if !p.tradeTerStr {
+					p.tradeTerStr = true
+					p.wsTerTrade = make(chan []storage.PolymarketTrade, 1)
+				}
+			}
 		case "clickhouse":
 			cc.clickHStr = true
 			if p.clickhouse == nil {
@@ -265,6 +275,13 @@ func (p *polymarket) newAutoSubjectCfg(cfg config.PolymarketAuto) *polySubjectCf
 			if !p.clickHStr {
 				p.clickHStr = true
 				p.wsClickHouseBook = make(chan []storage.PolymarketBook, 1)
+			}
+			if cfg.RecordTrades {
+				cc.tradeClickHStr = true
+				if !p.tradeClickHStr {
+					p.tradeClickHStr = true
+					p.wsClickHouseTrade = make(chan []storage.PolymarketTrade, 1)
+				}
 			}
 		default:
 			log.Error().Str("exchange", "polymarket").Str("subject", polyAutoSubject).Str("storage", str).Msg("unknown storage in polymarket.auto.storages (supported: terminal, clickhouse)")
