@@ -681,6 +681,8 @@ Example configuration: [./examples/config.polymarket.json](./examples/config.pol
 
 * **connection : clickhouse|terminal : orders_book_commit_buffer** : Batch size for `polymarket_book` inserts (the raw book stream reuses the same buffer as the exchange order-book tables). No separate polymarket buffer setting.
 
+* **connection : clickhouse|terminal : trade_commit_buffer** : Batch size for `polymarket_trade` inserts — the same knob the exchange `trade` table uses.
+
 * **connection : clickhouse|terminal : market_commit_buffer** : Batch size for `polymarket_market` metadata / resolution upserts.
 
 * **connection : polymarket : discovery_interval_sec** : How often to re-poll Gamma for newly minted / expired markets and reconcile the websocket subscriptions (default 300).

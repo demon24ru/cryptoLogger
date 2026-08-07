@@ -191,6 +191,16 @@ type polySubjectCfg struct {
 	auto bool
 }
 
+// anyTer / anyClickH report whether the subject writes to that storage through
+// ANY channel. Market metadata (and resolution) is not channel-specific — a
+// trade-only subject still needs it, or its trades would carry no event id,
+// expiry or winning outcome.
+func (c *polySubjectCfg) anyTer() bool    { return c.terStr || c.tradeTerStr }
+func (c *polySubjectCfg) anyClickH() bool { return c.clickHStr || c.tradeClickHStr }
+
+// recordsBook reports whether the subject records the CLOB book stream.
+func (c *polySubjectCfg) recordsBook() bool { return c.terStr || c.clickHStr }
+
 // keepType reports whether a market type should be recorded for this subject.
 func (c *polySubjectCfg) keepType(mtype string) bool {
 	if len(c.types) == 0 {
@@ -240,9 +250,12 @@ type polymarket struct {
 	auto *polyAuto
 
 	// per-storage commit batch sizes, taken from the terminal/clickhouse connection
-	// config (book -> orders_book_commit_buffer, metadata -> market_commit_buffer).
+	// config (book -> orders_book_commit_buffer, trades -> trade_commit_buffer,
+	// metadata -> market_commit_buffer).
 	terBookBuf   int
 	chBookBuf    int
+	terTradeBuf  int
+	chTradeBuf   int
 	terMarketBuf int
 	chMarketBuf  int
 
@@ -402,7 +415,9 @@ func newPolymarket(appCtx context.Context, markets []config.Market, connCfg *con
 	}
 	sort.Strings(subjectNames) // stable log output
 	p.subjects = strings.Join(subjectNames, ",")
-	if !p.terStr && !p.clickHStr {
+	// A subject may record only trades, only the book, or both — so the guard
+	// must consider every channel, not just the book one.
+	if !p.terStr && !p.clickHStr && !p.tradeTerStr && !p.tradeClickHStr {
 		return errors.New("polymarket: no storage configured (need terminal and/or clickhouse)")
 	}
 	p.bookOut = make(chan polyBookItem, 256)
@@ -520,11 +535,15 @@ func (p *polymarket) applyConfig(connCfg *config.Connection) {
 	if p.fullBookIntSec <= 0 {
 		p.fullBookIntSec = polyDefaultFullBookIntSec
 	}
-	// Batch sizes are taken from the terminal/clickhouse connection config — the
-	// book stream reuses orders_book_commit_buffer, metadata uses market_commit_buffer.
-	// (No polymarket-specific buffer settings — those would just duplicate these.)
+	// Batch sizes are taken from the terminal/clickhouse connection config, each
+	// channel reusing the knob that already means the same thing for the other
+	// exchanges: the book stream -> orders_book_commit_buffer, executed trades ->
+	// trade_commit_buffer, market metadata -> market_commit_buffer. (No
+	// polymarket-specific buffer settings — those would just duplicate these.)
 	p.terBookBuf = atLeastOne(connCfg.Terminal.OrdersBookCommitBuf)
 	p.chBookBuf = atLeastOne(connCfg.ClickHouse.OrdersBookCommitBuf)
+	p.terTradeBuf = atLeastOne(connCfg.Terminal.TradeCommitBuf)
+	p.chTradeBuf = atLeastOne(connCfg.ClickHouse.TradeCommitBuf)
 	p.terMarketBuf = atLeastOne(connCfg.Terminal.MarketCommitBuf)
 	p.chMarketBuf = atLeastOne(connCfg.ClickHouse.MarketCommitBuf)
 	p.autoCreateTables = pc.AutoCreateTables
@@ -1093,10 +1112,10 @@ func (p *polymarket) upsertMarkets(ctx context.Context, subject string, rows []s
 		buf   int
 	}
 	var dsts []dst
-	if cc.terStr {
+	if cc.anyTer() {
 		dsts = append(dsts, dst{p.ter, p.terMarketBuf})
 	}
-	if cc.clickHStr {
+	if cc.anyClickH() {
 		dsts = append(dsts, dst{p.clickhouse, p.chMarketBuf})
 	}
 	for _, d := range dsts {
@@ -1331,8 +1350,8 @@ func (p *polymarket) tradeBatcher(ctx context.Context) error {
 	tick := time.NewTicker(polyBookFlushIntSec * time.Second)
 	defer tick.Stop()
 
-	terBatch := make([]storage.PolymarketTrade, 0, p.terBookBuf)
-	chBatch := make([]storage.PolymarketTrade, 0, p.chBookBuf)
+	terBatch := make([]storage.PolymarketTrade, 0, p.terTradeBuf)
+	chBatch := make([]storage.PolymarketTrade, 0, p.chTradeBuf)
 
 	flushTer := func() error {
 		if len(terBatch) == 0 {
@@ -1343,7 +1362,7 @@ func (p *polymarket) tradeBatcher(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		}
-		terBatch = make([]storage.PolymarketTrade, 0, p.terBookBuf)
+		terBatch = make([]storage.PolymarketTrade, 0, p.terTradeBuf)
 		return nil
 	}
 	flushCh := func() error {
@@ -1355,7 +1374,7 @@ func (p *polymarket) tradeBatcher(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		}
-		chBatch = make([]storage.PolymarketTrade, 0, p.chBookBuf)
+		chBatch = make([]storage.PolymarketTrade, 0, p.chTradeBuf)
 		return nil
 	}
 
@@ -1364,7 +1383,7 @@ func (p *polymarket) tradeBatcher(ctx context.Context) error {
 		case item := <-p.tradeOut:
 			if item.ter {
 				terBatch = append(terBatch, item.row)
-				if len(terBatch) >= p.terBookBuf {
+				if len(terBatch) >= p.terTradeBuf {
 					if err := flushTer(); err != nil {
 						return err
 					}
@@ -1372,7 +1391,7 @@ func (p *polymarket) tradeBatcher(ctx context.Context) error {
 			}
 			if item.ch {
 				chBatch = append(chBatch, item.row)
-				if len(chBatch) >= p.chBookBuf {
+				if len(chBatch) >= p.chTradeBuf {
 					if err := flushCh(); err != nil {
 						return err
 					}
@@ -1407,8 +1426,8 @@ func (p *polymarket) persistBook(ctx context.Context, tokenID, msgType, data, ha
 		return nil
 	}
 	cc := p.subjectCfg[meta.subject]
-	if cc == nil {
-		return nil
+	if cc == nil || !cc.recordsBook() {
+		return nil // this subject does not record the book channel
 	}
 	item := polyBookItem{
 		row: storage.PolymarketBook{
@@ -1468,6 +1487,12 @@ func (p *polymarket) fullBookSweep(ctx context.Context) error {
 	p.mu.RLock()
 	tokens := make([]string, 0, len(p.subscribed))
 	for tok := range p.subscribed {
+		// Anchors exist to seed the book replay; a subject that records only
+		// trades has no book rows to anchor, so skip its tokens instead of
+		// spending REST calls on them.
+		if cc := p.subjectCfg[p.meta[tok].subject]; cc == nil || !cc.recordsBook() {
+			continue
+		}
 		tokens = append(tokens, tok)
 	}
 	p.mu.RUnlock()

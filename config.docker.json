@@ -88,7 +88,7 @@
             "request_timeout_sec": 10,
             "compression": false,
             "ticker_commit_buffer": 100,
-            "trade_commit_buffer": 100,
+            "trade_commit_buffer": 30,
             "level2_commit_buffer": 100,
             "orders_book_commit_buffer": 1000,
             "market_commit_buffer": 100
