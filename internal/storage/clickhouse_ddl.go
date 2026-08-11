@@ -23,7 +23,7 @@ const chMarketEnum = "Enum16('BTCUSDT'=1,'ETHUSDT'=2,'XRPUSDT'=3,'SOLUSDT'=4,'SU
 // cold-storage tier: everything lives on the main storage and is dropped past
 // this age. Change it here and both the CREATE statements and the ALTER
 // migrations below follow (scripts/clickhouse_schema.sql mirrors the value).
-const RetentionDays = 15
+const RetentionDays = 30
 
 // ttlDays renders the shared TTL clause for a DateTime/DateTime64 column.
 func ttlDays(col string) string {
