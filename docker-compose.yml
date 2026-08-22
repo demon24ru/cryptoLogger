@@ -17,6 +17,11 @@ services:
     image: yandex/clickhouse-server
     restart: always
     container_name: db
+    # 300s instead of the 10s default. `compose down` sends SIGTERM and then
+    # SIGKILLs after the grace period; ClickHouse with 100+ GiB cannot finish
+    # writing part checksums in 10s. That is how 27.07, 07.08 and 10.08 produced
+    # 450 broken parts, detached as broken-on-start at the next boot.
+    stop_grace_period: 300s
     ulimits:
       nofile:
         soft: 262144
