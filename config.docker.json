@@ -40,6 +40,120 @@
                             ]
                         }
                     ]
+                },
+                {
+                    "id": "ETH",
+                    "gamma_tag_id": 1312,
+                    "require_tag_ids": [
+                        39
+                    ],
+                    "exclude_tag_ids": [
+                        102127
+                    ],
+                    "info": [
+                        {
+                            "channel": "book",
+                            "connector": "websocket",
+                            "market_types": [
+                                "ABOVE",
+                                "RANGE",
+                                "TOUCH"
+                            ],
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        },
+                        {
+                            "channel": "trade",
+                            "connector": "websocket",
+                            "market_types": [
+                                "ABOVE",
+                                "RANGE",
+                                "TOUCH"
+                            ],
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "XRP",
+                    "gamma_tag_id": 1312,
+                    "require_tag_ids": [
+                        101267
+                    ],
+                    "exclude_tag_ids": [
+                        102127
+                    ],
+                    "info": [
+                        {
+                            "channel": "book",
+                            "connector": "websocket",
+                            "market_types": [
+                                "ABOVE",
+                                "RANGE",
+                                "TOUCH"
+                            ],
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        },
+                        {
+                            "channel": "trade",
+                            "connector": "websocket",
+                            "market_types": [
+                                "ABOVE",
+                                "RANGE",
+                                "TOUCH"
+                            ],
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "SOL",
+                    "gamma_tag_id": 1312,
+                    "require_tag_ids": [
+                        818
+                    ],
+                    "exclude_tag_ids": [
+                        102127
+                    ],
+                    "info": [
+                        {
+                            "channel": "book",
+                            "connector": "websocket",
+                            "market_types": [
+                                "ABOVE",
+                                "RANGE",
+                                "TOUCH"
+                            ],
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        },
+                        {
+                            "channel": "trade",
+                            "connector": "websocket",
+                            "market_types": [
+                                "ABOVE",
+                                "RANGE",
+                                "TOUCH"
+                            ],
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        }
+                    ]
                 }
             ],
             "retry": {
@@ -53,6 +167,45 @@
             "markets": [
                 {
                     "id": "BTCUSDT",
+                    "info": [
+                        {
+                            "channel": "ticker",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "ETHUSDT",
+                    "info": [
+                        {
+                            "channel": "ticker",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "XRPUSDT",
+                    "info": [
+                        {
+                            "channel": "ticker",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "clickhouse"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "SOLUSDT",
                     "info": [
                         {
                             "channel": "ticker",
