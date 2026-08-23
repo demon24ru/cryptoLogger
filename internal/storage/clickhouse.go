@@ -48,6 +48,15 @@ func InitClickHouse(cfg *config.ClickHouse) (*ClickHouse, error) {
 				}
 			}
 		}
+		// NOTE: this parameter is a NO-OP and asynchronous inserts are NOT enabled here.
+		// clickhouse-go v1.5.1 speaks the native tcp:// protocol and only forwards DSN
+		// keys present in its querySettingList whitelist (query_settings.go); neither
+		// `custom_http_params` (an HTTP-interface-only knob) nor `async_insert` is in it,
+		// and unknown keys are silently dropped. Confirmed on the server: the
+		// system.asynchronous_insert_log table does not exist, i.e. not one async insert
+		// ever happened. Turning async inserts on would require clickhouse-go v2 or a
+		// server-side settings profile / user default. Deliberately left as-is: the
+		// current synchronous batch-per-transaction mode is sufficient.
 		dataSourceName.WriteString("&custom_http_params=async_insert=1,async_insert_busy_timeout_max_ms=1000,async_insert_max_data_size=0,wait_for_async_insert=0")
 		db, err := sql.Open("clickhouse", dataSourceName.String())
 		if err != nil {

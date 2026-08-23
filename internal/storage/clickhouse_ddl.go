@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"sync"
 )
 
 // Idempotent auto-creation of the crypto-spot exchange tables, mirroring
@@ -33,10 +34,41 @@ func ttlDays(col string) string {
 // modifyTTL renders the migration that retunes an EXISTING table to the shared
 // interval. MODIFY TTL replaces the whole previous expression, so it also drops
 // any older rule (e.g. the "+ 50 DAY TO DISK 'cold_storage'" move the spot
-// tables used to carry). Idempotent.
+// tables used to carry).
+//
+// Idempotent AT THE SCHEMA LEVEL ONLY — NOT at the mutation level. ClickHouse
+// does not compare the new TTL expression with the old one: with the default
+// materialize_ttl_after_modify = 1 every ALTER ... MODIFY TTL enqueues a fresh
+// MATERIALIZE TTL mutation over ALL parts, even when the expression is byte-for
+// -byte identical to the one already in place. On a table with hundreds of parts
+// that mutation is expensive and can wedge (Code: 107 FILE_DOESNT_EXIST) and
+// then restart forever, burning CPU. Since these migrations run on every
+// connector reconnect, that is exactly what happened in production.
+//
+// materialize_ttl_after_modify = 0 makes the ALTER a metadata-only change: no
+// mutation is created. The TTL still takes effect — expired rows are dropped by
+// the ordinary background merges (and by the TTL merge selector), just not by a
+// forced full rewrite of every existing part.
+//
+// NOTE: the returned string is a COMPLETE statement ending in a SETTINGS clause.
+// Never append anything to it.
 func modifyTTL(table, col string) string {
-	return fmt.Sprintf("ALTER TABLE %s MODIFY %s", table, ttlDays(col))
+	return fmt.Sprintf("ALTER TABLE %s MODIFY %s SETTINGS materialize_ttl_after_modify = 0", table, ttlDays(col))
 }
+
+// Migrations are retunes of already-existing tables; unlike the
+// CREATE TABLE IF NOT EXISTS statements they are NOT free to repeat (see
+// modifyTTL). CreatePolymarketTables is called from newPolymarket, i.e. on every
+// reconnect of the connector's infinite retry loop, so the migration sets are
+// guarded to run at most once per process — but only once they SUCCEED. A plain
+// sync.Once would burn on a transient failure (ClickHouse still starting, a
+// timeout) and leave the migrations permanently unapplied; the mutex + bool
+// below retries until one clean pass, then stops.
+var (
+	migrateMu          sync.Mutex
+	exchangeMigrated   bool
+	polymarketMigrated bool
+)
 
 // CreateExchangeTables idempotently creates ticker / trade / level2 / ordersbook.
 func (c *ClickHouse) CreateExchangeTables(appCtx context.Context) error {
@@ -78,12 +110,20 @@ func exchangeMigrations() []string {
 	return out
 }
 
+// migrateExchangeTables applies exchangeMigrations at most once per process, and
+// only on success: an error leaves the flag down so the next call retries.
 func (c *ClickHouse) migrateExchangeTables(appCtx context.Context) error {
+	migrateMu.Lock()
+	defer migrateMu.Unlock()
+	if exchangeMigrated {
+		return nil
+	}
 	for _, stmt := range exchangeMigrations() {
 		if _, err := c.DB.ExecContext(appCtx, stmt); err != nil {
 			return fmt.Errorf("exchange migration %q: %w", stmt, err)
 		}
 	}
+	exchangeMigrated = true
 	return nil
 }
 
@@ -208,13 +248,21 @@ func polymarketMigrations() []string {
 	}
 }
 
-// migratePolymarketTables applies polymarketMigrations. A failure is returned so
-// the caller can log it; the connector treats table setup as best-effort.
+// migratePolymarketTables applies polymarketMigrations at most once per process,
+// and only on success: an error leaves the flag down so the next reconnect
+// retries. A failure is returned so the caller can log it; the connector treats
+// table setup as best-effort.
 func (c *ClickHouse) migratePolymarketTables(appCtx context.Context) error {
+	migrateMu.Lock()
+	defer migrateMu.Unlock()
+	if polymarketMigrated {
+		return nil
+	}
 	for _, stmt := range polymarketMigrations() {
 		if _, err := c.DB.ExecContext(appCtx, stmt); err != nil {
 			return fmt.Errorf("polymarket migration %q: %w", stmt, err)
 		}
 	}
+	polymarketMigrated = true
 	return nil
 }

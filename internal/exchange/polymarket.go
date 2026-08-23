@@ -43,7 +43,8 @@ const (
 	polyGammaMaxPages           = 50  // safety cap on discovery pagination
 	polyHTTPTimeoutSec          = 20
 	polyPingIntSec              = 10
-	polyBookFlushIntSec         = 2  // time-based flush so quiet strikes' tail rows are not held back
+	polyBookFlushIntSec         = 2  // idle flush for the book batcher: bounds how long a row may sit unflushed
+	polyTradeFlushIntSec        = 30 // idle flush for the trade batcher: the executed-trade stream is ~1000x thinner than the book, so a 2s timer would emit 2-row parts
 	polyFullBookThrottleMs      = 25 // gap between per-token REST /book requests in an anchor sweep
 )
 
@@ -1345,9 +1346,13 @@ func parseFloatOrZero(s string) float64 {
 }
 
 // tradeBatcher accumulates executed trades into per-storage batches, flushing on
-// the same count-or-timer rule as the book batcher.
+// the same count-or-idle-timer rule as the book batcher — but on its own, much
+// longer interval (polyTradeFlushIntSec): executed trades arrive at well under one
+// row per second, so the book's 2s timer would fire on almost every flush and turn
+// each part into a couple of rows.
 func (p *polymarket) tradeBatcher(ctx context.Context) error {
-	tick := time.NewTicker(polyBookFlushIntSec * time.Second)
+	const flushInt = polyTradeFlushIntSec * time.Second
+	tick := time.NewTicker(flushInt)
 	defer tick.Stop()
 
 	terBatch := make([]storage.PolymarketTrade, 0, p.terTradeBuf)
@@ -1378,6 +1383,18 @@ func (p *polymarket) tradeBatcher(ctx context.Context) error {
 		return nil
 	}
 
+	// resetIdle turns the periodic ticker into an IDLE flush: the timer only exists
+	// to bound how long a row may sit unflushed, so its clock is restarted exactly
+	// when nothing is pending any more — i.e. when EVERY batch is empty. Restarting
+	// it on a per-batch flush would be wrong: with terminal storage enabled, a busy
+	// clickhouse batch flushing by count every second would keep resetting the timer
+	// and a slow terminal batch would never be flushed at all.
+	resetIdle := func() {
+		if len(terBatch) == 0 && len(chBatch) == 0 {
+			tick.Reset(flushInt)
+		}
+	}
+
 	for {
 		select {
 		case item := <-p.tradeOut:
@@ -1397,6 +1414,7 @@ func (p *polymarket) tradeBatcher(ctx context.Context) error {
 					}
 				}
 			}
+			resetIdle()
 		case <-tick.C:
 			if err := flushTer(); err != nil {
 				return err
@@ -1559,12 +1577,17 @@ func (p *polymarket) fetchBook(ctx context.Context, tokenID string) (*polyBookMs
 
 // bookBatcher accumulates raw book rows into per-storage batches and flushes each
 // to its commit worker when it reaches that storage's orders_book_commit_buffer OR
-// on a periodic timer (so a strike that goes quiet does not hold its last rows
-// hostage in a partial buffer).
+// on an IDLE timer (so a strike that goes quiet does not hold its last rows
+// hostage in a partial buffer). The timer is idle rather than periodic: it is
+// restarted on every flush that leaves all batches empty, so it only fires when the
+// buffer genuinely failed to fill within polyBookFlushIntSec. A free-running timer
+// would instead emit an extra short part every interval regardless of how full the
+// buffer was, which is the dominant source of tiny MergeTree parts.
 // Routing is per-row (per-subject flags), mirroring the other exchanges' per-market
 // storage routing: a row goes to terminal and/or clickhouse per its coin's config.
 func (p *polymarket) bookBatcher(ctx context.Context) error {
-	tick := time.NewTicker(polyBookFlushIntSec * time.Second)
+	const flushInt = polyBookFlushIntSec * time.Second
+	tick := time.NewTicker(flushInt)
 	defer tick.Stop()
 
 	terBatch := make([]storage.PolymarketBook, 0, p.terBookBuf)
@@ -1595,6 +1618,18 @@ func (p *polymarket) bookBatcher(ctx context.Context) error {
 		return nil
 	}
 
+	// resetIdle turns the periodic ticker into an IDLE flush: the timer only exists
+	// to bound how long a row may sit unflushed, so its clock is restarted exactly
+	// when nothing is pending any more — i.e. when EVERY batch is empty. Restarting
+	// it on a per-batch flush would be wrong: with terminal storage enabled, a busy
+	// clickhouse batch flushing by count every second would keep resetting the timer
+	// and a slow terminal batch would never be flushed at all.
+	resetIdle := func() {
+		if len(terBatch) == 0 && len(chBatch) == 0 {
+			tick.Reset(flushInt)
+		}
+	}
+
 	for {
 		select {
 		case item := <-p.bookOut:
@@ -1614,6 +1649,7 @@ func (p *polymarket) bookBatcher(ctx context.Context) error {
 					}
 				}
 			}
+			resetIdle()
 		case <-tick.C:
 			if err := flushTer(); err != nil {
 				return err
