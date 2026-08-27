@@ -907,6 +907,13 @@
     </prometheus>
     -->
 
+    <!-- 27.08.2026: суточные партиции + TTL. Месячная партиция системного лога
+         копит сотни миллионов строк в одном парте, к которому каждые 7.5 с прилетает
+         крошечный новый; мерж-селектор бесконечно пересобирает один и тот же диапазон
+         (уровень парта дорос до 1744), и на битом парте этот мерж падал мгновенно и
+         перезапускался без бэкоффа — 4457 отказов/с и ~2.5 ядра из 4 в холостую.
+         ВНИМАНИЕ: partition_by применяется только при СОЗДАНИИ таблицы; существующим
+         TTL проставлен через ALTER TABLE ... MODIFY TTL. -->
     <!-- Query log. Used only for queries with setting log_queries = 1. -->
     <query_log>
         <!-- What table to insert data. If table is not exist, it will be created.
@@ -923,7 +930,7 @@
                 toYYYYMM(event_date)
                 toStartOfHour(event_time)
         -->
-        <partition_by>toYYYYMM(event_date)</partition_by>
+        <partition_by>toYYYYMMDD(event_date)</partition_by>
         <!--
             Table TTL specification: https://clickhouse.com/docs/en/engines/table-engines/mergetree-family/mergetree/#mergetree-table-ttl
             Example:
@@ -938,6 +945,8 @@
              Example: <engine>ENGINE = MergeTree PARTITION BY toYYYYMM(event_date) ORDER BY (event_date, event_time) SETTINGS index_granularity = 1024</engine>
           -->
 
+        <ttl>event_date + INTERVAL 14 DAY DELETE</ttl>
+
         <!-- Interval of flushing data. -->
         <flush_interval_milliseconds>7500</flush_interval_milliseconds>
     </query_log>
@@ -948,7 +957,8 @@
         <database>system</database>
         <table>trace_log</table>
 
-        <partition_by>toYYYYMM(event_date)</partition_by>
+        <partition_by>toYYYYMMDD(event_date)</partition_by>
+        <ttl>event_date + INTERVAL 14 DAY DELETE</ttl>
         <flush_interval_milliseconds>7500</flush_interval_milliseconds>
     </trace_log>
 
@@ -957,7 +967,8 @@
     <query_thread_log>
         <database>system</database>
         <table>query_thread_log</table>
-        <partition_by>toYYYYMM(event_date)</partition_by>
+        <partition_by>toYYYYMMDD(event_date)</partition_by>
+        <ttl>event_date + INTERVAL 14 DAY DELETE</ttl>
         <flush_interval_milliseconds>7500</flush_interval_milliseconds>
     </query_thread_log>
 
@@ -966,7 +977,8 @@
     <query_views_log>
         <database>system</database>
         <table>query_views_log</table>
-        <partition_by>toYYYYMM(event_date)</partition_by>
+        <partition_by>toYYYYMMDD(event_date)</partition_by>
+        <ttl>event_date + INTERVAL 14 DAY DELETE</ttl>
         <flush_interval_milliseconds>7500</flush_interval_milliseconds>
     </query_views_log>
 
@@ -975,7 +987,8 @@
     <part_log>
         <database>system</database>
         <table>part_log</table>
-        <partition_by>toYYYYMM(event_date)</partition_by>
+        <partition_by>toYYYYMMDD(event_date)</partition_by>
+        <ttl>event_date + INTERVAL 14 DAY DELETE</ttl>
         <flush_interval_milliseconds>7500</flush_interval_milliseconds>
     </part_log>
 
@@ -994,6 +1007,8 @@
     <metric_log>
         <database>system</database>
         <table>metric_log</table>
+        <partition_by>toYYYYMMDD(event_date)</partition_by>
+        <ttl>event_date + INTERVAL 14 DAY DELETE</ttl>
         <flush_interval_milliseconds>7500</flush_interval_milliseconds>
         <collect_interval_milliseconds>1000</collect_interval_milliseconds>
     </metric_log>
@@ -1005,10 +1020,12 @@
     <asynchronous_metric_log>
         <database>system</database>
         <table>asynchronous_metric_log</table>
+        <partition_by>toYYYYMMDD(event_date)</partition_by>
         <!--
             Asynchronous metrics are updated once a minute, so there is
             no need to flush more often.
         -->
+        <ttl>event_date + INTERVAL 7 DAY DELETE</ttl>
         <flush_interval_milliseconds>7000</flush_interval_milliseconds>
     </asynchronous_metric_log>
 
@@ -1052,7 +1069,8 @@
         <database>system</database>
         <table>session_log</table>
 
-        <partition_by>toYYYYMM(event_date)</partition_by>
+        <partition_by>toYYYYMMDD(event_date)</partition_by>
+        <ttl>event_date + INTERVAL 14 DAY DELETE</ttl>
         <flush_interval_milliseconds>7500</flush_interval_milliseconds>
     </session_log>
 

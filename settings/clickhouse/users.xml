@@ -18,6 +18,14 @@
                  first_or_random - if first replica one has higher number of errors, pick a random one from replicas with minimum number of errors.
             -->
             <load_balancing>random</load_balancing>
+
+            <!-- 27.08.2026, по итогам диагностики 50% CPU. query_thread_log — строка на
+                 КАЖДЫЙ поток каждого запроса (75 тыс. строк/час на этой нагрузке); именно
+                 её мерж зациклился и съедал ~2.5 ядра из 4. Пользы от неё здесь нет.
+                 memory_profiler_step=0 убирает Memory/MemoryPeak-сэмплы (10/с, ~70%
+                 объёма trace_log); CPU/Real-профайлер остаётся включён. -->
+            <log_query_threads>0</log_query_threads>
+            <memory_profiler_step>0</memory_profiler_step>
         </default>
 
         <!-- Profile that allows only read queries. -->
