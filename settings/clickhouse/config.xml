@@ -1183,15 +1183,38 @@
     <merge_tree>
         <max_suspicious_broken_parts>15000</max_suspicious_broken_parts>
 
-        <!-- fsync of the part directory on write. Cheap: it syncs the directory
-             entry, not the data itself. It protects against a part left half
-             visible by a power cut, which is the one case a clean shutdown
-             cannot prevent.
+        <!-- fsync_part_directory MUST stay 0 on ClickHouse 22.1.3.7.
+             With it enabled, every VERTICAL merge (>=11 columns and >=131072
+             result rows, MergingParams::Ordinary, no TTL deletion) dies
+             instantly on open() of its own part directory:
+
+               Code: 107. FILE_DOESNT_EXIST: Cannot open file
+               /var/lib/clickhouse/store/<uuid>/tmp_merge_<part>/, errno: 2
+
+             and is retried by the background pool with no backoff. Measured
+             on 2026-09-08: 4 788 errors/s, 27 744 197 failed merges of
+             default.polymarket_screener since 2026-09-05, plus system.part_log
+             and system.query_log looping the same way; user 45% + sys 20% on a
+             host with an empty query queue. The 2026-08-27 storm on the system
+             log tables was the same bug treated as a symptom (TRUNCATE + TTL).
+             The parts are intact -- CHECK TABLE passes, every part reads --
+             it is the merge writer that is broken. Setting it to 0 made the
+             merge that had failed 27.7M times succeed in 1328 ms.
+
+             Horizontal merges are unaffected, which is why polymarket_book
+             (10 columns), ticker (4) and the ReplacingMergeTree tables never
+             showed it.
+
+             Cost of 0: a part directory entry may be lost to a power cut, and
+             the part is then detached as broken-on-start. That already happens
+             anyway (171 such parts of polymarket_book after the 2026-09-08
+             outage). Re-enable only after upgrading ClickHouse -- upstream
+             fixed the vertical-merge fsync path after 22.1.
              NOTE: max_suspicious_broken_parts=15000 above means the server
              starts silently with thousands of broken parts and the logs say
              nothing. mm_engine/ch_health.py watches for that in the nightly
              cycle and reports what was lost and what can be re-fetched. -->
-        <fsync_part_directory>1</fsync_part_directory>
+        <fsync_part_directory>0</fsync_part_directory>
 
         <!-- fsync_after_insert is deliberately NOT enabled. It syncs data on
              every insert, and the recorder writes small and often (parts of
