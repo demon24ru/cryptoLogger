@@ -15,6 +15,7 @@ services:
         ipv4_address: 172.23.0.3
   db:
     image: yandex/clickhouse-server
+#    image: clickhouse/clickhouse-server
     restart: always
     container_name: db
     # 300s instead of the 10s default. `compose down` sends SIGTERM and then
