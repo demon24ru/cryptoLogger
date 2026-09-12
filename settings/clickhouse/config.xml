@@ -1197,7 +1197,7 @@
              and system.query_log looping the same way; user 45% + sys 20% on a
              host with an empty query queue. The 2026-08-27 storm on the system
              log tables was the same bug treated as a symptom (TRUNCATE + TTL).
-             The parts are intact -- CHECK TABLE passes, every part reads --
+             The parts are intact - CHECK TABLE passes, every part reads -
              it is the merge writer that is broken. Setting it to 0 made the
              merge that had failed 27.7M times succeed in 1328 ms.
 
@@ -1208,7 +1208,7 @@
              Cost of 0: a part directory entry may be lost to a power cut, and
              the part is then detached as broken-on-start. That already happens
              anyway (171 such parts of polymarket_book after the 2026-09-08
-             outage). Re-enable only after upgrading ClickHouse -- upstream
+             outage). Re-enable only after upgrading ClickHouse - upstream
              fixed the vertical-merge fsync path after 22.1.
              NOTE: max_suspicious_broken_parts=15000 above means the server
              starts silently with thousands of broken parts and the logs say
