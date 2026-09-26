@@ -38,6 +38,9 @@
     <users>
         <!-- If user name was not specified, 'default' user is used. -->
         <default>
+            <password remove="remove" />
+            <password_sha256_hex remove="remove" />
+            <password_double_sha1_hex remove="remove" />
             <!-- See also the files in users.d directory where the password can be overridden.
 
                  Password could be specified in plaintext or in SHA256 (in hex format).
