@@ -32,6 +32,7 @@ services:
       - ./db/data:/var/lib/clickhouse
       - ./dbcold:/home/cold_storage
       - ./settings/clickhouse/users.xml:/etc/clickhouse-server/users.xml
+      - ./settings/clickhouse/default-password.xml:/etc/clickhouse-server/users.d/default-password.xml
       - ./settings/clickhouse/config.xml:/etc/clickhouse-server/config.xml
     ports:
       - "8123:8123"
